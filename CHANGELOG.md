@@ -4,6 +4,18 @@ All notable changes to Jobfaro are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and Jobfaro adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.51.0] — 2026-08-19
+
+### Changed
+
+- **`jobfaro prescreen` runs batched by default.** JD fetches now group into per-host queues:
+  within a host, requests stay sequential with the same 800 ms politeness spacing as before, but
+  up to 8 host queues run concurrently — a 50-portal sweep finishes roughly an order of magnitude
+  faster with identical per-host manners. `--lanes N` tunes the concurrency; `--serial` restores
+  the old one-at-a-time sweep. Verdicts also flush to `pipeline.tsv` every 25 completions (via the
+  existing batched upsert), so a long sweep populates results while it runs instead of only at the
+  end.
+
 ## [1.50.0] — 2026-07-16
 
 **Rename-resilience: a moved/renamed checkout now diagnoses and heals itself.** 141 tests green.

@@ -5,16 +5,35 @@ import { File as FsFile } from 'expo-file-system';
 import { router } from 'expo-router';
 import { backendMode } from '@/src/serve';
 import { useStore } from '@/src/store';
-import { t } from '@/src/engine';
-import { relevanceScore, levelDecision, locationMatches, regionPriority } from '@jobfaro/engine';
+import { t, type Lang } from '@/src/engine';
+import { relevanceScore, levelDecision, locationMatches, regionPriority, parseSalaryText } from '@jobfaro/engine';
 import { Btn, C, Card, Field, H, Pill, Sub, confirmColor } from '@/src/ui';
 
 const REGION_OPTS = ['midwest', 'northeast', 'southeast', 'southwest', 'west', 'nationwide'];
 const LEVEL_OPTS = ['entry', 'mid', 'senior'];
-const SALARY_OPTS = [0, 40000, 60000, 80000, 100000, 120000]; // 0 = Any
 
 type SortKey = 'score' | 'fresh' | 'company';
 type FilterKey = 'all' | 'fit' | 'maybe' | 'skip';
+
+
+// Free-text salary target (1.22.1): "80k", "$80,000", "80000" — preset chips were needlessly
+// restrictive. Parsed live with an honest echo; blank = any.
+function SalaryInput({ lang, value, onSet }: { lang: Lang; value: number; onSet: (n: number) => void }) {
+  const [txt, setTxt] = useState(value ? `${Math.round(value / 1000)}k` : '');
+  const parsed = parseSalaryText(txt);
+  return (
+    <View>
+      <Field
+        placeholder={t(lang, 'salary.placeholder')}
+        value={txt}
+        onChangeText={(x: string) => { setTxt(x); const n = parseSalaryText(x); if (n !== null) onSet(n); }}
+      />
+      <Text style={{ color: parsed === null ? C.warn : C.dim, fontSize: 11, marginTop: 2 }}>
+        {parsed === null ? t(lang, 'salary.bad') : parsed === 0 ? t(lang, 'salary.any') : t(lang, 'salary.parsed', { v: `$${Math.round(parsed / 1000)}k` })}
+      </Text>
+    </View>
+  );
+}
 
 export default function Search() {
   const profile = useStore((s) => s.profile);
@@ -52,7 +71,14 @@ export default function Search() {
     rows = rows.filter((j) =>
       (profile.levels.length === 0 || levelDecision(j.role, profile.levels).include) &&
       (profile.regions.length === 0 || locationMatches(j.location, profile.regions)));
-    if (active) rows = rows.filter((j) => rel(j) > 0 || j.confirm === 'fit'); // cut roles irrelevant to the intent
+    if (active && terms?.fromResume) {
+      // Résumé-mode default view shows ONLY plausible rows: real title relevance, or winc's fit/maybe.
+      // AI-skips stay one tap away under the Skip filter WITH their reasons (honest, not hidden) —
+      // stale "Strong signals" chips alone no longer buy a spot (that's how Inside Sales outranked IT).
+      if (filter === 'skip') rows = rows.filter((j) => j.aiConfirm === 'skip' || (j.confirm ?? 'skip') === 'skip');
+      else rows = rows.filter((j) => j.aiConfirm !== 'skip' && (rel(j) > 0 || j.aiConfirm === 'fit' || j.aiConfirm === 'maybe'));
+    }
+    else if (active) rows = rows.filter((j) => rel(j) > 0 || j.confirm === 'fit'); // cut roles irrelevant to the intent
     if (filter !== 'all') rows = rows.filter((j) => (j.confirm ?? 'skip') === filter);
     // Best-match order leads with region timezone priority (in-region first, out-of-timezone remote last —
     // a "remote out of Columbus" role no longer floats to the top when "West" is selected), then intent
@@ -62,6 +88,25 @@ export default function Search() {
     const out = [...rows];
     if (sortBy === 'fresh') out.sort((a, b) => String(b.postedOn || '').localeCompare(String(a.postedOn || '')));
     else if (sortBy === 'company') out.sort((a, b) => a.company.localeCompare(b.company));
+    // Résumé-derived terms (1.22.1): rank by RELEVANCE TIERS — a title-phrase or multi-keyword match
+    // (rel ≥ 2.5) first, any real match next, zero-relevance rows last NO MATTER their prescreen chip
+    // (those chips can be stale generic-overlap scores, which is exactly how customer-service roles
+    // "outranked" IT ones). Within a tier, fit + fresh prescreen order honestly. Typed intent keeps
+    // its own words-first ordering below.
+    else if (terms?.fromResume) {
+      const relTier = (j: any) => { const r = rel(j); return r >= 2.5 ? 2 : r > 0 ? 1 : 0; };
+      // winc's semantic verdict leads when present (fit above everything, skip below everything) —
+      // word overlap can't tell "Inside Sales" from "Desktop Support" for an IT résumé; the model can.
+      const aiRank = (j: any) => (j.aiConfirm === 'fit' ? 2 : j.aiConfirm === 'maybe' ? 1 : j.aiConfirm === 'skip' ? -1 : 0);
+      out.sort((a, b) =>
+        pr(b) - pr(a) ||
+        Number(Boolean(a.gate)) - Number(Boolean(b.gate)) ||
+        aiRank(b) - aiRank(a) ||
+        relTier(b) - relTier(a) ||
+        rel(b) - rel(a) ||
+        fitRank(b) - fitRank(a) ||
+        b.prescreen - a.prescreen);
+    }
     else out.sort((a, b) =>
       pr(b) - pr(a) ||
       (active ? rel(b) - rel(a) : 0) ||
@@ -164,9 +209,7 @@ export default function Search() {
             <Chip label={t(lang, 'search.sponsorship')} active={profile.sponsorship} on={toggleSponsorship} color={C.good} />
           </View>
           <Text style={{ color: C.dim, fontSize: 12, marginTop: 6 }}>{t(lang, 'common.salary')}</Text>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 2 }}>
-            {SALARY_OPTS.map((n) => (<Chip key={n} label={n === 0 ? t(lang, 'salary.any') : `$${Math.round(n / 1000)}k`} active={(profile.salary || 0) === n} on={() => setSalary(n)} color={C.tint} />))}
-          </View>
+          <SalaryInput lang={lang} value={profile.salary || 0} onSet={setSalary} />
 
           <Btn label={t(lang, 'onboard.start')} onPress={() => { setOnboarded(true); runSearch(); }} />
           <Btn kind="ghost" label={t(lang, 'onboard.skip')} onPress={() => setOnboarded(true)} />
@@ -257,11 +300,7 @@ export default function Search() {
           </Pressable>
         </View>
         <Text style={{ color: C.dim, fontSize: 12, marginTop: 6 }}>{t(lang, 'common.salary')}</Text>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 2 }}>
-          {SALARY_OPTS.map((n) => (
-            <Chip key={n} label={n === 0 ? t(lang, 'salary.any') : `$${Math.round(n / 1000)}k`} active={(profile.salary || 0) === n} on={() => setSalary(n)} color={C.tint} />
-          ))}
-        </View>
+        <SalaryInput lang={lang} value={profile.salary || 0} onSet={setSalary} />
         {profile.name ? <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 2 }}><Pill label={`👤 ${profile.name}`} color={C.tint} text={C.tint} /></View> : null}
         </View>) : null}
         <Btn
@@ -298,6 +337,20 @@ export default function Search() {
           <Chip key={f} label={f === 'all' ? t(lang, 'filter.all') : t(lang, `search.confirm.${f}`)} active={filter === f} on={() => setFilter(f)} color={f === 'all' ? C.tint : confirmColor(f)} />
         ))}
       </View>
+      {/* Triage summary (1.22.1): what winc concluded, in one honest line — and when the boards hold
+          little in the person's lane, SAY so and point at Discover instead of padding the list. */}
+      {terms?.fromResume ? (() => {
+        const ai = scored.filter((j) => j.aiConfirm);
+        if (!ai.length) return null;
+        const f2 = ai.filter((j) => j.aiConfirm === 'fit').length;
+        const m2 = ai.filter((j) => j.aiConfirm === 'maybe').length;
+        return (
+          <Text style={{ color: C.dim, fontSize: 12, marginTop: 4 }}>
+            {t(lang, 'search.aiSummary', { n: ai.length, fit: f2, maybe: m2, skip: ai.length - f2 - m2 })}
+            {f2 === 0 ? `  ${t(lang, 'search.aiNone')}` : ''}
+          </Text>
+        );
+      })() : null}
 
       {visible.slice(0, shown).map((j) => (
         <Card key={j.url}>
@@ -306,6 +359,8 @@ export default function Search() {
           <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
             {/* Score is reserved for the evaluation (Apply) stage — Search shows only the fit indicator. */}
             <Pill label={t(lang, `search.confirm.${j.confirm}`)} color={confirmColor(j.confirm)} text={confirmColor(j.confirm)} />
+            {/* winc's semantic read (1.22.1) — shown with its reason, so the ranking explains itself. */}
+            {j.aiConfirm ? <Pill label={`🤖 ${t(lang, `search.ai.${j.aiConfirm}`)}${j.aiReason ? ` — ${j.aiReason}` : ''}`} color={confirmColor(j.aiConfirm)} text={confirmColor(j.aiConfirm)} /> : null}
             {j.sponsors ? <Pill label={t(lang, 'search.sponsors')} color={C.good} text={C.good} /> : null}
             {j.gate ? <Pill label={`⛔ ${j.gate}`} color={C.bad} text={C.bad} /> : null}
           </View>

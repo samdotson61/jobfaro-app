@@ -376,6 +376,7 @@ prescreen:
   reason_clearance: "requiere una autorización de seguridad activa"
   reason_degree: "exige título (excluiste los puestos que lo requieren)"
   reason_sponsorship: "no ofrece patrocinio de visa (tú lo necesitas)"
+  reason_pay: "salario por debajo de tu objetivo"
   flag_clearance: "menciona autorización de seguridad"
   flag_degree_stretch: "pide título — vale la pena intentarlo igual"
   flag_sponsorship: "sin patrocinio de visa"

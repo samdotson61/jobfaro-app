@@ -4,6 +4,45 @@ All notable changes to Jobfaro are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and Jobfaro adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.59.0] — 2026-08-28
+
+**Recommendations that are actually for YOU.** App 1.23.0 · desktop 0.2.4. Driven by a live failure:
+an infrastructure-IT résumé with an $80k target got customer-service and sales recommendations. Fixed,
+measured on the packaged app through six drive-test rounds, fixed again — final result for that same
+résumé: 8 targeted rows led by a winc-confirmed IT fit, zero customer service, and every excluded role
+carrying its quoted reason.
+
+### Changed
+
+- **The résumé is the default search intent** (`termsFromResume`, pure): job-title lines become
+  phrase-matched title terms, headline + skills sections become the domain keyword set — contact
+  lines excluded (a "Columbus, OH" line was handing every local role a relevance hit), résumé
+  furniture and bare role nouns (support/specialist/coordinator…) excluded (a hospital's
+  "…-SUPPORT" departments were matching an IT résumé's "support"). Typed intent always wins.
+- **winc semantic triage in Search** (`POST /confirm`, batch pre-confirm): the top ~24 candidates
+  get a model read against the résumé — fit / maybe / not-your-lane, each with a one-line reason
+  shown on the card (🤖). Word overlap can't tell "Inside Sales" from "Desktop Support"; a model
+  can. The triage knows the user's DECLARED level targets (without that it skipped entry-level
+  roles as "level too low" for an experienced candidate who chose entry). AI-skips leave the
+  default view and the Apply queue but sit under the Skip filter with their reasons — honest,
+  not hidden. A summary line reports the verdict counts, and when the boards hold little in the
+  person's lane it says so and points at 🧭 Discover instead of padding the list.
+- **Résumé-mode ranking**: winc's verdict leads, then relevance tiers (title-phrase/multi-keyword
+  first), then fit/prescreen — stale "Strong signals" chips alone no longer buy a top spot.
+- **A set salary target now has teeth**: stated pay ≥25% under an explicit target screens the role
+  with the numbers quoted ("$26.41/hr stated — your target is $80k") — reversible, never silent;
+  unstated pay never gates (absence of a number proves nothing). The old pay-never-screens rule
+  survives for users with no target.
+- **Target salary is free text** ("80k", "$80,000", 80 ⇒ $80k) with a live parsed echo — the preset
+  chips were needlessly restrictive. `parseSalaryText` in the engine, EN/ES strings.
+
+### Fixed
+
+- Search-terms race: a fast "Find matching roles" right after "Continue as" could run before the
+  résumé loaded — terms now re-derive at triage time.
+
+151→155 tests green across the pass; every round re-verified in the packaged desktop app.
+
 ## [1.58.0] — 2026-08-28
 
 **A new résumé rebuilds the search — visibly.** App 1.22.0 · desktop 0.2.3. Answers three product

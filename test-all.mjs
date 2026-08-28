@@ -30,7 +30,7 @@ import { mergeScanned, recordEval, serializePipeline, parsePipeline, band, bandC
 import { classifyFetchError } from './lib/liveness.mjs'
 import { recheckTargets } from './lib/commands/recheck.mjs'
 import { extractYearsRequired, extractDegreeGate, extractGates, screenDecision, prescreenRole, freshnessPoints, reasonLine, blendSalary, extractCredential, extractField, cvHasField, cvHasCredential, isHardIdentity, extractSponsorship } from './lib/prescreen.mjs'
-import { extractPay, bandVsTarget, formatPay, paySummary, SALARY_TOLERANCE, SALARY_FLOOR } from './lib/salary.mjs'
+import { extractPay, bandVsTarget, formatPay, paySummary, parseSalaryText, SALARY_TOLERANCE, SALARY_FLOOR } from './lib/salary.mjs'
 import { normalizeResumeDates, monthYear } from './lib/dates.mjs'
 import { decodeEntities, stripTags } from './lib/html.mjs'
 import { baseRoleTitle, peopleFinderLinks, businessDaysBetween, canContact, canFollowup, dueFollowups, lintDraft, draftOutreach, buildOutreachUser, OUTREACH_SYSTEM } from './lib/outreach.mjs'
@@ -41,7 +41,7 @@ import { resolveBackend, isLoopbackUrl, selectActive, backendHealth, callMessage
 import * as inferenceModule from './lib/inference.mjs'
 import { scoreFromJudgments, parseEvalJson, stripPII, clampVerdict, buildEvalUser, evalRole, buildVerdict, prepEval } from './lib/eval_engine.mjs'
 import { bandAgreement, buildBatchRequests, parseBatchResults, clampLogEntry } from './lib/eval_ops.mjs'
-import { expandQueryTerms, relevanceScore, parseIntent } from './lib/search.mjs'
+import { expandQueryTerms, relevanceScore, parseIntent, termsFromResume } from './lib/search.mjs'
 import { feedbackStats, thumbFromWouldApply, FEEDBACK_COLS } from './lib/feedback.mjs'
 import { buildBetaReport } from './lib/report_pure.mjs'
 import usajobs, { parseUsaJobsSearchUrl, parseUsaJobsJobUrl, buildSearchUrl, mapSearchItems, assembleJd } from './providers/usajobs.mjs'
@@ -979,7 +979,7 @@ test('pipeline: prune keeps a survivor whose alias is still live; pay column per
   assert.equal(out.find((r) => r.url === 'a1').pay, '$103k–130k (above)')
 })
 
-test('prescreen: salary blends into rank but never screens a role out (4.5 honesty)', () => {
+test('prescreen: salary blends into rank; screens ONLY past the explicit-target 25% line (1.59.0)', () => {
   assert.equal(blendSalary(80, null, 0.05), 80) // no pay → unchanged
   assert.equal(blendSalary(80, 1, 0), 80) // weight 0 → unchanged
   assert.equal(blendSalary(80, 1, 0.05), 81) // above-target nudges up
@@ -988,7 +988,8 @@ test('prescreen: salary blends into rank but never screens a role out (4.5 hones
   const cv = 'Analyst with SQL and Python skills.'
   const jd = 'Analyst role using SQL and Python. The annual salary range is $110,000 - $140,000.'
   const hi = prescreenRole({ jdText: jd, cvText: cv, posted: '2026-06-12', today: '2026-06-13', profile: { target_salary: 80000, score_weights: { salary: 0.05 } } })
-  const lo = prescreenRole({ jdText: jd, cvText: cv, posted: '2026-06-12', today: '2026-06-13', profile: { target_salary: 200000, score_weights: { salary: 0.05 } } })
+  // $140k ceiling vs a $160k target = 12.5% short — inside the 25% line, so it ranks lower but stays.
+  const lo = prescreenRole({ jdText: jd, cvText: cv, posted: '2026-06-12', today: '2026-06-13', profile: { target_salary: 160000, score_weights: { salary: 0.05 } } })
   assert.equal(hi.payBand.band, 'above')
   assert.equal(lo.payBand.band, 'below')
   assert.ok(hi.score > lo.score) // same JD, only the target differs → above-target ranks higher
@@ -1713,6 +1714,64 @@ test('1.56.1 zero-config scan: defaultPortalsForRegions seeds real boards for a 
   assert.ok(everywhere.length >= midwest.length, 'nationwide covers at least the region slice')
   // An empty/unknown selection still returns the full catalog — a fresh tester must never scan nothing.
   assert.ok(defaultPortalsForRegions([]).length > 0)
+})
+
+test('1.59.0 targeting: termsFromResume turns an infra-IT résumé into terms that rank IT over customer service', () => {
+  const cv = [
+    '# Alex Doe', 'Columbus, OH · alex@example.com', '',
+    'Infrastructure IT professional — systems, cloud, and networks.', '',
+    '## Experience', '### Systems Administrator — Initech · 2022–2025',
+    '- Administered Windows Server, Active Directory, VMware; 99.9% uptime',
+    '### IT Support Specialist — Acme · 2020–2022',
+    '- Tier 1/2 support for 500 users; imaging; ticket queue', '',
+    '## Skills', '- Azure · Intune · Networking · PowerShell · Windows Server · VMware',
+  ].join('\n')
+  const terms = termsFromResume(cv)
+  assert.ok(terms.titles.includes('systems administrator'), JSON.stringify(terms.titles))
+  assert.ok(terms.keywords.includes('azure') && terms.keywords.includes('networking'))
+  assert.ok(!terms.keywords.includes('present') && !terms.keywords.includes('experience'), 'résumé furniture filtered')
+  // Contact-line city/state must NOT become keywords — a location token hands every local role a
+  // relevance hit ("Medical Assistant, Columbus" ranking for an infra résumé, caught live).
+  assert.ok(!terms.keywords.includes('columbus') && !terms.keywords.includes('example'), 'contact line filtered: ' + terms.keywords.join(','))
+  assert.ok(!terms.keywords.includes('support') && !terms.keywords.includes('administrator'), 'bare role nouns dropped (title phrases carry them): ' + terms.keywords.join(','))
+  // The complaint scenario: with these terms, IT titles must clearly outrank customer-service titles.
+  const it = relevanceScore('Systems Administrator Kettering Health Dayton, OH', terms)
+  const helpdesk = relevanceScore('IT Support Specialist Cleveland Clinic Cleveland, OH', terms)
+  const cs = relevanceScore('Customer Service Associate Kroger Columbus, OH', terms)
+  assert.ok(it > cs && helpdesk > cs, `it=${it} helpdesk=${helpdesk} cs=${cs}`)
+  assert.deepEqual(termsFromResume(''), { keywords: [], titles: [], exclude: [] })
+})
+
+test('1.59.0 pay screen: an explicit target screens far-below-target STATED pay — quoted, never silent', () => {
+  const jd = 'Customer Service Associate. Pay range: $17.00 – $19.00 per hour. Requirements: friendly attitude.'
+  const cvText = 'Systems administrator with Azure and networking experience.'
+  // $19/hr tops out ≈ $39.5k — 51% under an $80k target → screened WITH the numbers quoted.
+  const withTarget = prescreenRole({ jdText: jd, cvText, today: '2026-08-28', profile: { target_salary: 80000, target_levels: ['entry', 'mid'] } })
+  assert.equal(withTarget.screened, true)
+  const payReason = withTarget.reasons.find((r) => r.kind === 'pay')
+  assert.ok(payReason && /\$8?0k/.test(payReason.quote) && /hr|\$/.test(payReason.quote), JSON.stringify(payReason))
+  // No target set → pay never screens (unchanged honesty).
+  const noTarget = prescreenRole({ jdText: jd, cvText, today: '2026-08-28', profile: { target_levels: ['entry', 'mid'] } })
+  assert.equal(noTarget.screened, false)
+  // Near-target (inside 25%) → not screened; ranking handles it.
+  const near = prescreenRole({ jdText: 'Analyst. Salary: $70,000 - $75,000 per year.', cvText, today: '2026-08-28', profile: { target_salary: 80000, target_levels: ['entry', 'mid'] } })
+  assert.equal(near.screened, false)
+  // Unstated pay + target → untouched (absence of a number proves nothing).
+  const silent = prescreenRole({ jdText: 'Analyst role. Great team.', cvText, today: '2026-08-28', profile: { target_salary: 80000, target_levels: ['entry', 'mid'] } })
+  assert.equal(silent.screened, false)
+})
+
+test('1.59.0 salary input: parseSalaryText reads human salary text honestly', () => {
+  assert.equal(parseSalaryText('80k'), 80000)
+  assert.equal(parseSalaryText('$80,000'), 80000)
+  assert.equal(parseSalaryText('80000'), 80000)
+  assert.equal(parseSalaryText('$80k+'), 80000)
+  assert.equal(parseSalaryText('80'), 80000) // bare "80" means $80k, not $80
+  assert.equal(parseSalaryText('62.5k'), 62500)
+  assert.equal(parseSalaryText(''), 0) // blank = any
+  assert.equal(parseSalaryText('any'), 0)
+  assert.equal(parseSalaryText('eighty'), null) // unreadable → null, the UI says so
+  assert.equal(parseSalaryText('9999999'), null) // outside sane bounds
 })
 
 test('1.55.0 would-apply: thumbFromWouldApply derives agreement per band; Research is never scored', () => {

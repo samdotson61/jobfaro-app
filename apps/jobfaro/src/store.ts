@@ -6,13 +6,13 @@ import {
 } from './engine';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { backendMode, serveGet, servePost, serveHealth } from './serve';
-import { regionForLocation } from '@jobfaro/engine';
+import { regionForLocation, termsFromResume, relevanceScore } from '@jobfaro/engine';
 
 // The app holds NO engine logic — it renders what `jobfaro serve` (the real CLI + winc) returns. Every
 // action is a thin call to serve; `@jobfaro/engine` is used only for derived UI (band colors, cadence labels).
 
 export interface Contact { url: string; person: string; date: string; kind: 'contact' | 'followup' }
-export interface SearchTerms { keywords: string[]; titles: string[]; exclude: string[]; level?: string; regions?: string[] }
+export interface SearchTerms { keywords: string[]; titles: string[]; exclude: string[]; level?: string; regions?: string[]; fromResume?: boolean }
 
 interface State {
   profile: Profile;
@@ -104,6 +104,20 @@ const startTicker = (set: any, get: any) => {
   return () => clearInterval(id);
 };
 const WEIGHTS: Record<string, number> = { skills: 0.35, experience: 0.25, level_fit: 0.2, logistics: 0.1, education: 0.1 };
+
+
+// Pick the shortlist winc triages (1.22.1): the most promising un-gated rows by relevance tier, then
+// prescreen — the same order the résumé-mode list leads with, so the triage spend lands on what the
+// person will actually see first.
+const pickConfirmCandidates = (rows: Scored[], terms: SearchTerms | null, n: number): string[] => {
+  const rel = (j: Scored) => (terms ? relevanceScore(`${j.role} ${j.company} ${j.location}`, terms) : 0);
+  const tier = (j: Scored) => { const r = rel(j); return r >= 2.5 ? 2 : r > 0 ? 1 : 0; };
+  return rows
+    .filter((j) => !j.gate && !j.listingGone)
+    .sort((a, b) => tier(b) - tier(a) || rel(b) - rel(a) || b.prescreen - a.prescreen)
+    .slice(0, n)
+    .map((j) => j.url);
+};
 
 // Map a real pipeline.tsv row (from serve) → the app's Scored shape the Search tab renders.
 const rowToScored = (r: any): Scored => ({
@@ -241,6 +255,8 @@ export const useStore = create<State>()(persist((set, get) => ({
         set({
           cv: r.text, resumeFile: r.name || fileName, profile: newProfile,
           ...(resumeChanged ? { verdicts: {}, feedback: {}, tailored: {} } : {}),
+          // No typed intent → the NEW résumé becomes the ranking intent immediately (1.22.1).
+          ...(!s0.intent.trim() ? { searchTerms: { ...termsFromResume(r.text), fromResume: true } } : {}),
         });
         get().saveProfileToCli(); // an uploaded identity persists to config/profile.yml (durable)
         result = {
@@ -355,7 +371,12 @@ export const useStore = create<State>()(persist((set, get) => ({
           set({ searchTerms: terms });
         }
       } else if (!intent) {
-        terms = null; set({ searchTerms: null });
+        // No typed intent → the RÉSUMÉ is the intent (1.22.1): its own job titles and skills drive
+        // relevance ranking, so an infrastructure-IT résumé surfaces IT roles, not everything that
+        // happens to share the word "support". Typed words always win when present.
+        const cv0 = get().cv;
+        terms = cv0 && cv0.trim() ? { ...termsFromResume(cv0), fromResume: true } : null;
+        set({ searchTerms: terms });
       }
       bump(0.15);
       // 2) Scan ONLY when the scope (region/level) changed or we have nothing yet — a scan re-fetches every
@@ -378,8 +399,39 @@ export const useStore = create<State>()(persist((set, get) => ({
         if (!pre || pre.ok === false) break;
         if (Array.isArray(pre.rows)) set({ scored: rowsToScored(pre.rows) });
         processed += Number(pre.checked) || 0;
-        bump(Math.min(0.94, 0.45 + 0.49 * Math.min(1, processed / TARGET)));
+        bump(Math.min(0.78, 0.45 + 0.33 * Math.min(1, processed / TARGET)));
         if (!pre.checked || pre.checked < BATCH) break; // pending exhausted
+      }
+      // 4) Semantic triage (1.22.1): winc pre-confirms the TOP candidates (fit/maybe/skip against the
+      //    résumé) so ranking carries MEANING, not just word overlap — keyword prescreen can't tell
+      //    "Inside Sales" from "Desktop Support" for an IT résumé; a model can. AI-skips drop out of
+      //    the Apply queue (still visible in Search with their honest chip).
+      // Late re-derivation (race hardening): if the résumé landed AFTER this search started (e.g.
+      // "continue as" is still fetching when the user clicks), terms would be empty and the triage
+      // shortlist would fall back to stale prescreen order — recompute from the cv we have NOW.
+      if (!intent && (!terms || (!terms.keywords.length && !terms.titles.length))) {
+        const cvNow = get().cv;
+        if (cvNow && cvNow.trim()) {
+          terms = { ...termsFromResume(cvNow), fromResume: true };
+          set({ searchTerms: terms });
+        }
+      }
+      const cand = pickConfirmCandidates(get().scored, terms, 24);
+      if (cand.length && get().modelUp !== false) {
+        bump(0.8);
+        try {
+          const cr = await servePost('/confirm', { urls: cand, cv: get().cv || undefined });
+          if (cr && cr.ok !== false && Array.isArray(cr.results)) {
+            const byUrl = new Map<string, any>(cr.results.map((x: any) => [x.url, x]));
+            set((s) => ({
+              scored: s.scored.map((j) => {
+                const v = byUrl.get(j.url);
+                if (!v) return j;
+                return { ...j, aiConfirm: v.verdict, aiReason: v.reason || '', confirm: v.verdict === 'skip' ? 'skip' : v.verdict === 'fit' ? 'fit' : j.confirm };
+              }),
+            }));
+          }
+        } catch { /* triage is best-effort — the ranked list stands without it */ }
       }
       bump(1);
       set({ lastIntent: intent, lastScope: scopeSig });

@@ -1,6 +1,6 @@
 {
   "name": "jobfaro-desktop",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "private": true,
   "description": "Jobfaro Desktop (beta) — the full local job-search engine + the app GUI in one double-clickable window, for Mac and Windows beta testers.",
   "main": "main.cjs",

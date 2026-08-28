@@ -376,6 +376,7 @@ prescreen:
   reason_clearance: "requires an active security clearance"
   reason_degree: "degree-gated (you excluded degree-required roles)"
   reason_sponsorship: "no visa sponsorship offered (you need sponsorship)"
+  reason_pay: "pay under your target"
   flag_clearance: "clearance mentioned"
   flag_degree_stretch: "degree asked — worth a shot anyway"
   flag_sponsorship: "no visa sponsorship"

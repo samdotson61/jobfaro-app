@@ -9,7 +9,7 @@ export type Band = 'apply' | 'research' | 'dont';
 
 export interface Profile { name: string; language: Lang; regions: string[]; levels: string[]; transferable: boolean; sponsorship: boolean; salary: number }
 export interface Job { company: string; role: string; url: string; location: string; postedOn?: string; jd: string }
-export interface Scored extends Job { prescreen: number; screenReason: string; gate?: string; confirm?: 'fit' | 'maybe' | 'skip'; level?: string; sponsors?: boolean; listingGone?: boolean }
+export interface Scored extends Job { prescreen: number; screenReason: string; gate?: string; confirm?: 'fit' | 'maybe' | 'skip'; level?: string; sponsors?: boolean; listingGone?: boolean; aiConfirm?: 'fit' | 'maybe' | 'skip'; aiReason?: string }
 export interface Criterion { key: string; weight: number; judgment: 'strong' | 'partial' | 'none'; evidence: string }
 export interface Verdict { score: number; band: Band; criteria: Criterion[]; pay: string; clamped?: string }
 export interface Tailored { summary: string; coverLetter: string; keywords: string[] }
@@ -36,6 +36,8 @@ const STR: Record<Lang, Dict> = {
     'search.sponsorship': 'Need visa sponsorship', 'search.sponsors': '✓ Sponsors visa',
     // Signal-language, not verdicts: prescreen is keyword overlap + freshness — "fit" is the eval's word.
     'search.confirm.fit': 'Strong signals', 'search.confirm.maybe': 'Some signals', 'search.confirm.skip': 'Skip',
+    'search.ai.fit': 'good fit', 'search.ai.maybe': 'worth a look', 'search.ai.skip': 'not your lane',
+    'search.aiSummary': '🤖 winc read the top {n} against your résumé: {fit} good fit(s) · {maybe} worth a look · {skip} not your lane (under Skip).', 'search.aiNone': 'Slim pickings on these boards — tap 🧭 Discover to hunt employers in your field.',
     'search.showMore': 'Show more ({n} remaining)',
     'search.backendDown': 'Can’t reach the backend. Start it in a terminal — `jobfaro serve` — then retry.',
     'search.modelMissing': 'The on-device AI model isn’t downloaded yet — scoring needs it (search works without it).',
@@ -58,6 +60,7 @@ const STR: Record<Lang, Dict> = {
     'apply.showWhy': 'Why this score', 'apply.hideWhy': 'Hide details',
     'search.filtersShow': 'Adjust', 'search.filtersHide': 'Done',
     'search.discoverHint': 'Describe what you want above and Discover unlocks — it uses your words to hunt for more company boards.',
+    'salary.placeholder': 'Target salary — e.g. 80k or $80,000 (blank = any)', 'salary.parsed': 'Target: {v}+ — stated pay 25%+ under this screens out, with the numbers shown', 'salary.bad': "Couldn't read that — try 80k or 80000",
     'search.detected': 'From your résumé: {parts}. Check your preferences below — your own picks always win.',
     'search.detectedNone': 'Résumé saved. Set your region and level below so the search knows where to look.',
     'search.staleScores': '{n} previous score(s) were for your old résumé and were cleared — re-score in Apply.',
@@ -91,6 +94,8 @@ const STR: Record<Lang, Dict> = {
     'search.transferable': 'Acreditar habilidades transferibles',
     'search.sponsorship': 'Necesito patrocinio de visa', 'search.sponsors': '✓ Patrocina visa',
     'search.confirm.fit': 'Señales fuertes', 'search.confirm.maybe': 'Algunas señales', 'search.confirm.skip': 'Omitir',
+    'search.ai.fit': 'buen encaje', 'search.ai.maybe': 'vale la pena mirar', 'search.ai.skip': 'no es tu área',
+    'search.aiSummary': '🤖 winc leyó los {n} mejores frente a tu currículum: {fit} buen(os) encaje(s) · {maybe} vale la pena mirar · {skip} no es tu área (en Omitir).', 'search.aiNone': 'Poca cosecha en estos portales — toca 🧭 Descubrir para buscar empleadores de tu campo.',
     'search.showMore': 'Mostrar más ({n} restantes)',
     'search.backendDown': 'No se puede conectar con el backend. Inícialo en una terminal — `jobfaro serve` — y reintenta.',
     'search.modelMissing': 'El modelo de IA del dispositivo aún no está descargado — la evaluación lo necesita (la búsqueda funciona sin él).',
@@ -113,6 +118,7 @@ const STR: Record<Lang, Dict> = {
     'apply.showWhy': 'Por qué esta puntuación', 'apply.hideWhy': 'Ocultar detalles',
     'search.filtersShow': 'Ajustar', 'search.filtersHide': 'Listo',
     'search.discoverHint': 'Describe arriba lo que buscas y Descubrir se activa — usa tus palabras para buscar más portales de empresas.',
+    'salary.placeholder': 'Salario objetivo — p. ej. 80k o $80,000 (en blanco = cualquiera)', 'salary.parsed': 'Objetivo: {v}+ — un salario publicado 25%+ por debajo se descarta, mostrando las cifras', 'salary.bad': 'No se pudo leer — prueba 80k u 80000',
     'search.detected': 'De tu currículum: {parts}. Revisa tus preferencias abajo — tus propias elecciones siempre ganan.',
     'search.detectedNone': 'Currículum guardado. Configura tu región y nivel abajo para que la búsqueda sepa dónde mirar.',
     'search.staleScores': '{n} puntuación(es) anteriores eran de tu currículum viejo y se borraron — vuelve a puntuar en Postular.',

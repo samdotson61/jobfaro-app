@@ -92,7 +92,10 @@ node prepare-engine.mjs   # bootstrap: npm-packs the repo root → vendor/jobfar
                           # name — the committed dependency string never changes) + installs all deps
 npx electron . --smoke    # self-test: engine + GUI + API through one port, screenshots to verify
 npm run dist:all          # clean → vendor → GUI export → all six installers (mac arm64/x64,
-                          # win x64/arm64), so no stale-version artifacts linger in dist-build/
+                          # win x64/arm64) → prune unpacked bundles (only mac-arm64 kept for smoke;
+                          # duplicates confused Spotlight/Launchpad with ghost apps)
+npm run install:mac       # optional: install the canonical /Applications/Jobfaro.app for THIS Mac
+                          # (registers it with LaunchServices; the one you double-click)
 ```
 
 Artifacts land in `apps/desktop/dist-build/` (gitignored) — distribute the zips/exe directly for

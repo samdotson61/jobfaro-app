@@ -4,6 +4,19 @@ All notable changes to Jobfaro are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and Jobfaro adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.57.1] — 2026-08-28
+
+### Fixed
+
+- **"The app no longer opens" / "there are two of them."** Desktop 0.2.1. Packaging left multiple
+  UNPACKED `Jobfaro.app` bundles in `dist-build/` (native + Intel + Windows dirs), so Spotlight and
+  Launchpad listed duplicates — and `dist:all`'s clean rebuild deletes/recreates them, stranding
+  stale LaunchServices entries that look like the app but won't launch. Now: `dist:all` prunes every
+  unpacked bundle except the native `mac-arm64` one (kept for local smoke-driving; the zips/exes are
+  the distributables), and a new **`npm run install:mac`** installs the canonical copy to
+  `/Applications/Jobfaro.app` and fixes the LaunchServices registrations — one Jobfaro, always
+  openable. Applied on this machine.
+
 ## [1.57.0] — 2026-08-28
 
 **The calm-down: progressive disclosure + a portable, idempotent desktop build.** App 1.21.0 ·

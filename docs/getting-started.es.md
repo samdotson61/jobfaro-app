@@ -92,7 +92,16 @@ node bin/jobfaro eval --next 10           # puntúa los siguientes 10 (5, 10, 15
 
 Cada evaluación — individual o por lote — termina indicándote **dónde está tu informe de empleos**
 (`data/pipeline.tsv` en tu directorio de jobfaro) y cómo verlo: `jobfaro tracker` (tabla), `jobfaro tui`
-(interactivo), `jobfaro dashboard` (web).
+(interactivo), `jobfaro dashboard` (web) — más la línea de alcance honesto: las puntuaciones comparan
+el **texto del anuncio** con tu currículum; el empleador en sí no se verifica.
+
+Dos comandos mantienen los veredictos honestos con el tiempo:
+
+```bash
+node bin/jobfaro recheck                      # verifica que los puestos puntuados sigan publicados (sin modelo)
+node bin/jobfaro feedback "<puesto>" --good   # califica un veredicto 👍 (--bad para 👎) — construye tu
+                                              # conjunto local de etiquetas; `jobfaro calibrate --feedback` lo lee
+```
 
 **¿De dónde sale el modelo?** `eval`, `tailor` y los borradores de contacto necesitan uno — todo lo
 anterior funciona sin ninguno. Dos caminos fáciles:

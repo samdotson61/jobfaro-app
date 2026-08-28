@@ -24,6 +24,7 @@ interface State {
   modelUp: boolean;             // local mode: the on-device model is installed (health backend.up)
   busy: string | null;          // url/operation currently in flight (for spinners)
   scoring: boolean;             // a batch score-top-N pass is running
+  rechecking: boolean;          // a listing-liveness re-check is running (1.53.0)
   progress: number;             // 0..1 for the "Find matching roles" search; 0 = idle
   lastIntent: string;           // the intent the last search ran with (to avoid re-running the same scan)
   lastScope: string;            // region+level signature the last scan ran with (re-scan when it changes)
@@ -59,6 +60,7 @@ interface State {
   scoreOne: (url: string) => void;
   scoreTopN: (n: number) => void;                         // batch-eval the top relevant unscored roles (pool)
   rateVerdict: (url: string, thumb: 'up' | 'down') => void; // thumbs feedback → the calibration ledger
+  recheckListings: () => void;                            // 1.53.0: re-verify scored listings are still posted
   tailorOne: (url: string, directives: string[]) => void;
   draftOne: (url: string, person: string) => void;
   logContact: (url: string, person: string) => { ok: boolean; reason?: string };
@@ -110,6 +112,8 @@ const rowToScored = (r: any): Scored => ({
   confirm: r.screen_reason ? 'skip' : num(r.prescreen) >= 55 ? 'fit' : num(r.prescreen) >= 28 ? 'maybe' : 'skip',
   // The JD explicitly stated it sponsors visas (prescreen wrote `sponsors-visa` to the row's notes).
   sponsors: String(r.notes || '').includes('sponsors-visa') || undefined,
+  // Liveness (1.53.0): 'gone' = the board positively said this posting is no longer up (recheck/scan).
+  listingGone: r.listing_state === 'gone' || undefined,
 });
 const byScore = (a: Scored, b: Scored) => Number(Boolean(a.gate)) - Number(Boolean(b.gate)) || b.prescreen - a.prescreen;
 const rowsToScored = (rows: any[]) => (rows || []).filter((r) => r && r.url).map(rowToScored).sort(byScore);
@@ -143,6 +147,7 @@ export const useStore = create<State>()(persist((set, get) => ({
   modelUp: false,
   busy: null,
   scoring: false,
+  rechecking: false,
   progress: 0,
   lastIntent: '',
   lastScope: '',
@@ -420,7 +425,8 @@ export const useStore = create<State>()(persist((set, get) => ({
       if (v && v.ok !== false && v.score != null) {
         set((s) => ({ verdicts: { ...s.verdicts, [url]: verdictFromServe(v) } }));
         const row = get().scored.find((r) => r.url === url);
-        await servePost('/eval/save', { url, score: v.score, band: v.band, recommendation: v.recommendation, company: row && row.company, role: row && row.role, location: row && row.location });
+        // source: 'engine' — this verdict came from the gated decomposed engine via /evaluate (provenance, 1.52.0).
+        await servePost('/eval/save', { url, score: v.score, band: v.band, recommendation: v.recommendation, company: row && row.company, role: row && row.role, location: row && row.location, source: 'engine' });
       }
     } catch {
       /* surfaced as no verdict; backend may be down */
@@ -450,6 +456,20 @@ export const useStore = create<State>()(persist((set, get) => ({
       await Promise.all(Array.from({ length: Math.min(POOL, queue.length) }, worker));
     } finally {
       set({ scoring: false });
+    }
+  },
+
+  // 1.53.0: ask the backend to re-verify scored listings against their boards, then rehydrate so the
+  // "no longer posted" pills reflect what the boards actually said (only positive signals recorded).
+  recheckListings: async () => {
+    set({ rechecking: true });
+    try {
+      await servePost('/recheck', {});
+      await get().hydrate();
+    } catch {
+      /* backend down — the button is a convenience, hydrate on next boot shows any CLI-side rechecks */
+    } finally {
+      set({ rechecking: false });
     }
   },
 

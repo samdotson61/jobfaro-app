@@ -254,10 +254,13 @@ items below now describe the web app and the optional Mac-companion mode, not na
   it is not a global posting index. **USAJobs shipped in 1.43** as an opt-in seventh provider (BYO free
   key, dormant without one; not yet live-verified — needs a real key). A broader **aggregator Pro
   provider** on the same `/discover` seam remains future (LinkedIn/Indeed expose no open search API).
-- **The evaluator's score distribution is bimodal** (Apply/Don't clusters, thin Research band). Code-side
-  causes are fixed (5-level ratings, no years-cliff, empty-JD guard); the residual is model behavior.
-  The fix path is DATA: the 👍/👎 feedback ledger (`jobfaro calibrate --feedback`) accumulates real labels;
-  recalibrate band thresholds once N≥50–100 — don't guess them. See docs/eval-tuning-research.md §7.
+- **The evaluator's calibration is young.** The 1.42-era bimodality (Apply/Don't clusters, thin
+  Research band) flipped into **Apply inflation** on the decomposed engine — the 2026-08-28 audit
+  measured 54% of a real run in Apply with a 17-way tie at 4.8. 1.52 shipped the measured prompt fix
+  (strict-at-both-ends, defined criteria, location wired in) + integrity guards; 1.53 surfaces dead
+  listings; 1.54 opens the label funnel (`jobfaro feedback`). The residual fix path is still DATA:
+  real 👍/👎 labels → `calibrate --feedback`; recalibrate thresholds once N≥50–100 — don't guess
+  them. See docs/eval-tuning-research.md §7–8.
 
 ## Top risks → mitigations
 

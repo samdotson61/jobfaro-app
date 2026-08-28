@@ -96,7 +96,16 @@ node bin/jobfaro eval --next 10    # auto-score the next 10 (5, 10, 15 … any n
 
 Every eval — single or batch — ends by telling you **where your jobs report lives** (`data/pipeline.tsv`
 in your jobfaro home) and how to view it: `jobfaro tracker` (table), `jobfaro tui` (interactive),
-`jobfaro dashboard` (web).
+`jobfaro dashboard` (web) — plus the honest scope line: scores judge the **listing text** against your
+résumé; the employer itself isn't verified.
+
+Two follow-ups keep the verdicts honest over time:
+
+```bash
+node bin/jobfaro recheck                      # re-verify scored listings are still posted (no model)
+node bin/jobfaro feedback "<role>" --good     # rate a verdict 👍 (--bad for 👎) — builds your local
+                                              # label set; `jobfaro calibrate --feedback` reads it
+```
 
 **Where does the model come from?** `eval`, `tailor`, and outreach drafts need one — everything above
 runs without any. Two easy paths:

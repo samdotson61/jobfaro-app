@@ -10,8 +10,9 @@ export default function Apply() {
   const verdicts = useStore((s) => s.verdicts);
   const feedback = useStore((s) => s.feedback);
   const scoring = useStore((s) => s.scoring);
+  const rechecking = useStore((s) => s.rechecking);
   const tailored = useStore((s) => s.tailored);
-  const { scoreOne, scoreTopN, rateVerdict, tailorOne } = useStore.getState();
+  const { scoreOne, scoreTopN, rateVerdict, tailorOne, recheckListings } = useStore.getState();
   const lang = profile.language;
   const [dir, setDir] = useState<Record<string, string>>({});
   const queue = scored.filter((j) => j.confirm !== 'skip');
@@ -21,6 +22,8 @@ export default function Apply() {
     <ScrollView style={{ backgroundColor: C.bg }} contentContainerStyle={{ padding: 16, paddingBottom: 56 }}>
       <H>{t(lang, 'apply.title')}</H>
       <Sub>{queue.length ? `${queue.length} roles past pre-confirm.` : 'Run Search first to build the queue.'}  ·  {t(lang, 'common.demo')}</Sub>
+      {/* Honest scope (1.52.0): scores judge listing text vs résumé — nothing here vets the employer. */}
+      <Text style={{ color: C.dim, fontSize: 11, marginBottom: 8 }}>{t(lang, 'apply.notVerified')}</Text>
 
       {/* Batch-score the top matches instead of tapping each — pool-bounded so winc stays responsive. */}
       {unscored > 0 ? (
@@ -28,6 +31,14 @@ export default function Apply() {
           label={scoring ? t(lang, 'apply.scoring') : t(lang, 'apply.scoreTop', { n: Math.min(unscored, 10) })}
           disabled={scoring}
           onPress={() => scoreTopN(10)}
+        />
+      ) : null}
+      {/* Liveness (1.53.0): re-verify scored listings against their boards — dead ones get the honest pill. */}
+      {Object.keys(verdicts).length > 0 ? (
+        <Btn
+          label={rechecking ? t(lang, 'apply.rechecking') : t(lang, 'apply.recheck')}
+          disabled={rechecking}
+          onPress={() => recheckListings()}
         />
       ) : null}
 
@@ -38,9 +49,12 @@ export default function Apply() {
           <Card key={j.url}>
             <Text style={{ color: C.text, fontWeight: '700', fontSize: 15 }}>{j.role}</Text>
             <Text style={{ color: C.dim, marginBottom: 4 }}>{j.company} · {j.location}</Text>
+            {/* Liveness (1.53.0): the board positively reported this posting gone — say so, and don't
+                invite scoring a dead role. The verdict (if any) stays visible: history, not hype. */}
+            {j.listingGone ? <Pill label={t(lang, 'apply.gone')} color={C.bad} text={C.bad} /> : null}
 
             {!v ? (
-              <Btn label={t(lang, 'apply.score')} onPress={() => scoreOne(j.url)} />
+              j.listingGone ? null : <Btn label={t(lang, 'apply.score')} onPress={() => scoreOne(j.url)} />
             ) : (
               <View>
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center' }}>

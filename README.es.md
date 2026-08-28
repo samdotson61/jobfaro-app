@@ -14,7 +14,7 @@ puesto frente a tu currículum, adapta un CV y una carta de presentación compat
 registra cada postulación.
 
 > **Estado:** Fases 0–7, 5.5, 7.7, 7.8, 8b, 8a, 8c, 8e + 8f **completas**, **Fase 10 L0–L5 entregada** —
-> **Jobfaro CLI `1.51.0`** + **app `1.18.0`**: núcleo bilingüe; **seis escáneres
+> **Jobfaro CLI `1.54.0`** + **app `1.19.0`**: núcleo bilingüe; **seis escáneres
 > verificados en vivo** (Workday, iCIMS, Greenhouse, Lever, Ashby + un lector JSON-LD opcional) más un
 > agregador federal **USAJobs** opcional (con tu propia clave gratuita); selectores
 > de nivel y región y el asistente `jobfaro init`; la tubería completa **descubrir → prefiltrar → evaluar →
@@ -89,6 +89,8 @@ jobfaro seed --region midwest --write   # agrega empleadores reales de tu regió
 jobfaro prescreen      # filtra y ordena los puestos pendientes por probabilidad (sin modelo)
 jobfaro eval <url>     # evalúa un puesto frente a tu currículum
 jobfaro eval --next 10 # puntúa automáticamente los 10 mejores pendientes (5, 10, 15 … hasta 50) — con barra de radar
+jobfaro recheck        # verifica que los puestos puntuados sigan publicados (los retirados lo dicen — sin modelo)
+jobfaro feedback <puesto> --good|--bad  # califica un veredicto; construye el conjunto local que calibra el evaluador
 jobfaro pipeline       # escanear -> evaluar -> registrar, de principio a fin
 jobfaro tailor [empresa] # IA: resumen de CV + carta para el puesto (fundamentado, modelo local)
 jobfaro pdf [empresa]  # currículum adaptado para ATS → output/ (HTML, +PDF con Playwright)
@@ -127,7 +129,7 @@ nivel intermedio, o activa senior (que entonces se clasifica con normalidad, sin
 
 - **Inglés estadounidense + español**, paridad completa (inglés primario) — en la CLI y las apps.
 - **Escáner para grandes empresas de EE. UU.** — Workday + iCIMS primero, más Greenhouse/Lever/Ashby.
-- **Flujo descubrir → prefiltrar → evaluar** — `scan` encuentra y filtra puestos pero **nunca los puntúa**; `jobfaro prescreen` descarta requisitos duros (años exigidos, autorización de seguridad activa, título obligatorio) **con una razón citada — nunca en silencio** — y ordena el resto por coincidencia de habilidades + frescura; el modelo (`jobfaro eval`) puntúa la compatibilidad **0–5** con tu currículum y registra una banda **Postular / Investigar / Descartar**. `jobfaro tui` muestra los puestos descubiertos como *pendiente eval* hasta que el modelo los puntúa.
+- **Flujo descubrir → prefiltrar → evaluar** — `scan` encuentra y filtra puestos pero **nunca los puntúa**; `jobfaro prescreen` descarta requisitos duros (años exigidos, autorización de seguridad activa, título obligatorio) **con una razón citada — nunca en silencio** — y ordena el resto por coincidencia de habilidades + frescura; el modelo (`jobfaro eval`) puntúa la compatibilidad **0–5** con tu currículum y registra una banda **Postular / Investigar / Descartar**. `jobfaro tui` muestra los puestos descubiertos como *pendiente eval* hasta que el modelo los puntúa. **Alcance honesto:** la puntuación compara el *texto del anuncio* con tu currículum — Jobfaro no verifica al empleador, y cada informe de evaluación lo dice; `jobfaro recheck` verifica que los puestos puntuados sigan publicados (los retirados muestran "ya no publicado" en vez de una insignia verde), y `jobfaro feedback` recoge tus 👍/👎 para que `calibrate --feedback` mida — no adivine — cuántas veces acierta el evaluador.
 - **Un contacto cálido vale más que una solicitud fría** — `jobfaro outreach` construye enlaces de búsqueda de personas en LinkedIn (tú navegas y eliges; Jobfaro nunca extrae datos ni envía nada), los borradores los envías tú, y la cadencia cortés — 2 personas por puesto, UN seguimiento tras 5+ días hábiles, y se acabó — la aplica el código.
 - **Ajuste de región** — Medio Oeste por defecto; cambia a Noreste/Sureste/Suroeste/Oeste/todo el
   país y las semillas, los filtros de ubicación y la búsqueda se adaptan.

@@ -9,7 +9,7 @@ export type Band = 'apply' | 'research' | 'dont';
 
 export interface Profile { name: string; language: Lang; regions: string[]; levels: string[]; transferable: boolean; sponsorship: boolean; salary: number }
 export interface Job { company: string; role: string; url: string; location: string; postedOn?: string; jd: string }
-export interface Scored extends Job { prescreen: number; screenReason: string; gate?: string; confirm?: 'fit' | 'maybe' | 'skip'; level?: string; sponsors?: boolean }
+export interface Scored extends Job { prescreen: number; screenReason: string; gate?: string; confirm?: 'fit' | 'maybe' | 'skip'; level?: string; sponsors?: boolean; listingGone?: boolean }
 export interface Criterion { key: string; weight: number; judgment: 'strong' | 'partial' | 'none'; evidence: string }
 export interface Verdict { score: number; band: Band; criteria: Criterion[]; pay: string; clamped?: string }
 export interface Tailored { summary: string; coverLetter: string; keywords: string[] }
@@ -52,6 +52,8 @@ const STR: Record<Lang, Dict> = {
     'apply.band.apply': 'Apply', 'apply.band.research': 'Research', 'apply.band.dont': "Don't",
     'apply.directive': 'Steer it (e.g. warmer, shorter)…', 'apply.summary': 'Tailored summary',
     'apply.scoreTop': '⚡ Score top {n} matches', 'apply.scoring': 'Scoring…', 'apply.rate': 'Was this fit right?',
+    'apply.gone': 'No longer posted', 'apply.notVerified': 'Fit is scored from the listing text — the employer itself isn’t verified.',
+    'apply.recheck': '🔎 Re-check listings are still posted', 'apply.rechecking': 'Re-checking…',
     'followup.title': 'Reach out', 'followup.person': 'Recipient name', 'followup.draft': 'Draft a note',
     'followup.cadence': 'Cadence: 2 contacts/role · 1 follow-up after 5 business days · hard stop',
     'followup.lint.ok': 'Passes checks — review, then send it yourself.',
@@ -94,6 +96,8 @@ const STR: Record<Lang, Dict> = {
     'apply.band.apply': 'Postula', 'apply.band.research': 'Investiga', 'apply.band.dont': 'No',
     'apply.directive': 'Guíalo (p. ej. más cálido, más corto)…', 'apply.summary': 'Resumen adaptado',
     'apply.scoreTop': '⚡ Evaluar las {n} mejores', 'apply.scoring': 'Evaluando…', 'apply.rate': '¿El encaje fue correcto?',
+    'apply.gone': 'Ya no publicado', 'apply.notVerified': 'El ajuste se puntúa con el texto del anuncio — el empleador en sí no se verifica.',
+    'apply.recheck': '🔎 Verificar que los puestos sigan publicados', 'apply.rechecking': 'Verificando…',
     'followup.title': 'Contacta', 'followup.person': 'Nombre del destinatario', 'followup.draft': 'Redactar nota',
     'followup.cadence': 'Cadencia: 2 contactos/puesto · 1 seguimiento tras 5 días hábiles · alto definitivo',
     'followup.lint.ok': 'Pasa las verificaciones — revísala y envíala tú mismo.',

@@ -1,0 +1,77 @@
+[
+  {
+    "label": "starter-set note (read me)",
+    "note": "Jobfaro's STARTER calibration set (1.54.0): 12 synthetic, self-contained JD+CV pairs with hand-banded expectations. `jobfaro calibrate` falls back to this when data/calibration.json doesn't exist — a smoke check that the engine's bands still behave, NOT the N>=50 real-label set the eval-tuning doc calls for (that grows from `jobfaro feedback` thumbs). Each item carries its own cv so expectations don't depend on the user's résumé. This first item has no jd on purpose: calibrate reports it as skipped, proving the skip path stays honest.",
+    "expect": "dont"
+  },
+  {
+    "label": "direct fit — entry data analyst vs analyst grad",
+    "jd": "Data Analyst (Entry Level) — Columbus, OH. Build SQL queries and Excel dashboards, report KPIs to operations leadership, document data definitions. Requirements: SQL, Excel, strong attention to detail. Nice to have: Python, Tableau. 0-2 years experience. Bachelor's degree in any quantitative field or equivalent practical experience.",
+    "cv": "Recent graduate, B.S. Statistics. Skills: SQL (3 course projects + internship), Excel (pivot tables, VLOOKUP, dashboards), Python (pandas). Internship: built weekly KPI dashboard for a logistics team; documented metric definitions. Detail-oriented: caught and fixed a systematic reporting error.",
+    "expect": "apply"
+  },
+  {
+    "label": "clear non-fit — registered nurse vs analyst grad",
+    "jd": "Registered Nurse — Medical ICU, night shift. Provides direct patient care, medication administration, and care planning. Requirements: current RN license, BLS/ACLS certification, 1+ year acute care experience. Associate or Bachelor of Science in Nursing required.",
+    "cv": "Recent graduate, B.S. Statistics. Skills: SQL, Excel, Python. Internship: KPI dashboards for a logistics team.",
+    "expect": "dont"
+  },
+  {
+    "label": "seniority trap — Director role vs entry candidate",
+    "jd": "Director of Data & Analytics. Own the analytics org (3 teams, 18 people), set multi-year data strategy, partner with the C-suite on investment cases. Requirements: 10+ years in analytics, 5+ years leading managers, track record of org design and executive influence.",
+    "cv": "Recent graduate, B.S. Statistics. Skills: SQL, Excel, Python. Internship: KPI dashboards for a logistics team.",
+    "expect": "dont"
+  },
+  {
+    "label": "borderline — junior analyst with a real domain gap",
+    "jd": "Healthcare Data Analyst I — Cincinnati, OH (hybrid). Analyze claims and utilization data, build payer reporting, support quality measures (HEDIS). Requirements: SQL, Excel; 1+ year working with healthcare claims data preferred; understanding of medical coding (ICD/CPT) a plus. Bachelor's required.",
+    "cv": "Recent graduate, B.S. Statistics. Skills: SQL (internship + projects), Excel, Python. Internship: built KPI dashboards for a logistics company. No healthcare experience.",
+    "expect": "research"
+  },
+  {
+    "label": "career-changer bridge — ops professional vs process analyst (transferable ON)",
+    "jd": "Business Process Analyst — Dayton, OH. Map current-state workflows, identify bottlenecks, design and document standardized processes, drive adoption with frontline teams. Requirements: 2+ years improving operational processes, strong documentation habits, comfort with data in Excel. Bachelor's or equivalent experience.",
+    "cv": "IT Operations professional, 5 years. Re-engineered PC provisioning into a standardized process cutting deployment time 90%; built an asset-tracking process that cut missing assets 99% and passed audit; wrote the team's runbooks and trained new hires on them. Excel for tracking and reporting throughout.",
+    "transferable": true,
+    "expect": "apply"
+  },
+  {
+    "label": "career-changer over-reach — same ops professional vs staff surgeon",
+    "jd": "Staff Surgeon — General Surgery. Performs surgical procedures, manages perioperative care. Requirements: MD/DO, completed surgical residency, board certification, active state medical license.",
+    "cv": "IT Operations professional, 5 years. Process re-engineering, asset management, runbooks, training. Excel reporting.",
+    "transferable": true,
+    "expect": "dont"
+  },
+  {
+    "label": "generic-competence trap — experienced professional vs exec admin assistant",
+    "jd": "Administrative Assistant III — supports a Section Chief. Schedules appointments and meetings, maintains calendars, prepares correspondence, orders supplies, takes meeting minutes. Requirements: high school diploma, 2+ years administrative/secretarial experience supporting senior leaders, proficiency with Outlook calendaring.",
+    "cv": "IT Operations professional, 5 years. Led a 9-site migration program; managed vendors and a 4-person contractor team; re-engineered provisioning processes; ran Azure infrastructure at 99.9% uptime. No administrative-assistant or executive-support experience.",
+    "transferable": true,
+    "expect": "dont"
+  },
+  {
+    "label": "intern-level trap — experienced professional vs marketing internship",
+    "jd": "Marketing Email Intern. Assist the email team in developing, deploying and analyzing marketing emails. Learn our CRM tooling. Requirements: currently pursuing a bachelor's degree in marketing or communications; familiarity with social media; strong writing.",
+    "cv": "IT Operations professional, 5 years. Program leadership, vendor management, process design, Azure administration. Bachelor's degree completed.",
+    "transferable": true,
+    "expect": "dont"
+  },
+  {
+    "label": "years shortfall must not cliff — 2 years vs a 3-5 ask, otherwise strong",
+    "jd": "Systems Administrator — Louisville, KY. Administer Windows Server, Active Directory, and VMware; own patching and backups; support 300 users. Requirements: 3-5 years systems administration experience, Windows Server, AD, virtualization. Bachelor's or equivalent experience.",
+    "cv": "Systems Administrator, 2 years. Administer Windows Server (AD, file/print) and VMware vSphere at 99.5% uptime for 200+ users; built PowerShell deployment automation cutting install time 75%; redesigned provisioning to cut setup time 50%.",
+    "expect": "research"
+  },
+  {
+    "label": "hard license gate — CDL requirement the candidate lacks",
+    "jd": "Route Delivery Driver. Operates a commercial vehicle on a fixed route. Requirements: valid Class A CDL license required, clean driving record, ability to lift 50 lbs.",
+    "cv": "Warehouse associate, 3 years. Forklift certified, inventory management, order picking. Standard driver's license.",
+    "expect": "dont"
+  },
+  {
+    "label": "logistics mismatch — strong skills, wrong coast on-site",
+    "jd": "IT Support Specialist — ON-SITE five days a week in San Jose, CA (no remote, no relocation assistance). Tier 1/2 support for 400 users, Windows + Mac, ticket queue ownership. Requirements: 1-3 years IT support experience, strong customer communication.",
+    "cv": "IT Support Specialist, 2 years, based in Cincinnati, OH, seeking Midwest roles. Cut ticket resolution time 50%; trained new specialists; Windows and Mac fleets.",
+    "expect": "research"
+  }
+]

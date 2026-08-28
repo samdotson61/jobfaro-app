@@ -14,6 +14,8 @@ cli:
     seed: "Materializa portales desde el catálogo de empleadores por región"
     prescreen: "Filtra y ordena los puestos pendientes por probabilidad antes de cualquier evaluación (no requiere modelo)"
     eval: "Evalúa un puesto frente a tu currículum — puntuación de ajuste + informe"
+    recheck: "Verifica que los puestos puntuados sigan publicados (sin modelo)"
+    feedback: "Califica un veredicto 👍/👎 — construye el conjunto local que calibra el evaluador"
     pipeline: "Ejecuta escanear, evaluar y registrar de principio a fin"
     pdf: "Genera un currículum ATS → output/ (HTML/PDF)"
     outreach: "Encuentra personas a quienes contactar sobre un puesto + mantén los seguimientos corteses (los borradores los envías tú)"
@@ -50,6 +52,7 @@ scan:
   region_note: "{count} puesto(s) fuera de tu(s) región(es) fueron filtrados"
   eval_hint: "Puestos descubiertos guardados en tu flujo. El escaneo solo encuentra puestos — ejecuta `jobfaro eval <url>` para puntuar la compatibilidad (puntúa el modelo, no el escáner)."
   pruned: "{count} puesto(s) obsoleto(s) eliminados (ya no aparecen en ningún portal)"
+  listings_gone: "{count} puesto(s) puntuados ya no están en su portal — marcados \"ya no publicado\" (se conservan, nunca se borran)"
 
 doctor:
   title: "Diagnóstico de Jobfaro"
@@ -198,6 +201,7 @@ dashboard:
 
 tui:
   keys: "↑/↓ mover · ⏎/o abrir · a postulado · PgUp/PgDn g/G saltar · s ordenar · 1/2/3 banda · p pendiente · 0 todas · c empresa · r actualizar · q salir"
+  gone: "retirado ✗"
   empty: "Aún no hay puestos — ejecuta `jobfaro scan` para descubrir puestos y luego `jobfaro eval <url>` para puntuarlos."
   none_match: "Ningún puesto coincide con este filtro."
   pending: "pendiente"
@@ -231,6 +235,9 @@ eval:
   save_hint: "Se guarda con: jobfaro eval --save --url <url> --score <0.0–5.0> --band <apply|research|dont> --company \"…\" --role \"…\" --note \"…\""
   save_usage: "Uso: jobfaro eval --save --url <url> --score <0.0–5.0> [--band apply|research|dont] [--company …] [--role …] [--note …]"
   saved: "Guardado: compatibilidad {score} ({band}) — {role}"
+  band_mismatch: "No se guarda: la banda \"{band}\" contradice la puntuación {score} (que corresponde a \"{derived}\"). La banda siempre sigue a la puntuación — quita --band o corrige la puntuación."
+  no_cv: "No hay currículum guardado — no se puntúa. Sin currículum, el modelo inventa uno y devuelve un veredicto seguro pero sin sentido."
+  no_cv_hint: "Añade tu currículum (jobfaro import <archivo>, o guárdalo como data/cv.md) y vuelve a ejecutar."
   auto_backend_down: "Ningún backend de inferencia está listo ({reason})."
   auto_running: "Evaluando automáticamente {count} puesto(s) vía el backend {backend}…"
   auto_no_jd: "omitido (no se pudo obtener la descripción): {role}"
@@ -246,7 +253,31 @@ eval:
   report_where: "Tu informe de empleos: {file}"
   report_view: "Míralo: jobfaro tracker (tabla) · jobfaro tui (interactivo) · jobfaro dashboard (web)"
   report_more: "Evalúa más ({pending} pendientes): jobfaro eval --next 5 · 10 · 15 — cualquier número hasta 50"
+  report_scope: "Las puntuaciones comparan el texto del anuncio con tu currículum — el empleador en sí no se verifica."
+  dist_warn: "{applyCount} de {evaluated} veredictos cayeron en Postúlate ({pct}%) — inusualmente alto. Califica algunos (👍/👎 en la app) y ejecuta `jobfaro calibrate --feedback` para ver si el evaluador está inflando."
   batch_waiting: "Trabajo por lotes enviado — barriendo hasta que lleguen los resultados (la tarifa al 50% se toma su tiempo)…"
+
+feedback:
+  title: "Calificar un veredicto"
+  usage: "Uso: jobfaro feedback <url | texto de empresa-o-puesto> --good | --bad"
+  saved: "Registrado en {role} @ {company} (puntuado {score} {band})"
+  none: "Ningún puesto evaluado coincide con \"{target}\" — la calificación etiqueta un veredicto, así que primero hay que puntuar el puesto."
+  none_hint: "Ver puestos puntuados: jobfaro tracker · puntuar uno: jobfaro eval --next"
+  ambiguous: "{count} puestos puntuados coinciden con \"{target}\" — acota el texto o pasa el --url exacto:"
+  tally: "{n} etiqueta(s) hasta ahora — el evaluador coincide contigo el {agreement}% de las veces."
+  calibrate_hint: "Ver dónde se equivoca: jobfaro calibrate --feedback"
+  more_hint: "Con {need} etiqueta(s) más, `jobfaro calibrate --feedback` empieza a decirte algo real."
+
+recheck:
+  title: "Verificar puestos"
+  none: "Nada que verificar — no hay puestos evaluados en Postúlate/Investiga (usa --all para todos los puntuados, --url para uno)."
+  running: "Verificando {count} puesto(s) en sus portales…"
+  tally_live: "aún publicados"
+  tally_gone: "retirados"
+  gone_line: "ya no publicado: {company} — {role}"
+  done: "Verificación lista — {live} aún publicados, {gone} ya no publicados, {unknown} inaccesibles."
+  gone_note: "Los puestos retirados conservan su puntuación e historial, pero salen de la cola de evaluación y muestran \"ya no publicado\" — nada se borra."
+  unknown_note: "{count} portal(es) no respondieron — esas filas quedan sin cambios (un portal inaccesible no prueba nada)."
 
 backend:
   title: "Backend de inferencia"
@@ -284,6 +315,7 @@ backend:
 calibrate:
   title: "Calibrar el evaluador"
   none: "No hay conjunto de calibración en {file}. Proporciona un arreglo JSON de puestos con banda asignada a mano (cada uno: url o jd, más expect)."
+  starter_note: "Usando el conjunto inicial incluido (prueba sintética de humo). Tu propio conjunto etiquetado en {file} toma el relevo cuando exista — constrúyelo con veredictos reales vía `jobfaro feedback`."
   backend_down: "Ningún backend de inferencia está listo ({reason})."
   running: "Puntuando {count} puesto(s) de calibración vía el backend {backend}…"
   result: "Concordancia de banda: {overall}% sobre {n} puestos."

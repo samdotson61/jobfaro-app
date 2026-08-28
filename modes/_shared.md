@@ -48,6 +48,13 @@ Weigh these dimensions (the scanner already filtered titles/locations — you do
    apprenticeship/cert-friendly language (decisive for no-degree users).
 5. **Location / region fit** — alignment with the user's region(s) and remote-US (expanded in Phase 5).
 
+**Be strict at BOTH ends (1.52.0).** A top rating on any dimension needs the résumé to explicitly
+demonstrate it for THIS role's actual day-to-day work — general professional competence, or strength
+in a different kind of work, is a middle rating, never a top one. Most real candidate-job pairs are
+mixed; if every dimension looks maximal, re-read the JD. (The 2026-08-28 audit found the local
+evaluator rating an email-marketing internship and a fleet-platform SWE role identically top-band
+against the same résumé — reflexive top ratings are exactly the failure this rule exists to stop.)
+
 ## Level fit (entry-default, senior opt-in)
 
 `target_levels` is one or more of `entry` (default), `mid`, `senior`. The deterministic scanner

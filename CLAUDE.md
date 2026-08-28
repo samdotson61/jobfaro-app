@@ -3,8 +3,8 @@
 This repo is **Jobfaro** — a bilingual US job-search command center. Start with
 [`AGENTS.md`](AGENTS.md) for the full agent guide; it applies to Claude Code too.
 
-- Deterministic commands run with no model: `jobfaro scan`, `jobfaro doctor`, `jobfaro tracker`
-  (or `node scan.mjs --dry-run`).
+- Deterministic commands run with no model: `jobfaro scan`, `jobfaro doctor`, `jobfaro tracker`,
+  `jobfaro recheck`, `jobfaro feedback` (or `node scan.mjs --dry-run`).
 - Model-backed work (evaluate, tailor) reads the prompts in `modes/`.
 - Inside Claude Code, use the `/jobfaro` slash command (see `commands/jobfaro.md`).
 
@@ -20,5 +20,5 @@ Scope is locked: American English + Spanish; Midwest-default region; entry-defau
 touches public job data.
 
 > Status: Phases 0–7, 5.5, 7.7, 7.8, 8b, 8a, 8c, 8e + 8f complete + Phase 10 L0–L5 (fully-local iPhone
-> app; L6 TestFlight = Sam's account steps) — Jobfaro CLI 1.51.0 · app 1.18.0 (see `ROADMAP.md` / `CHANGELOG.md`).
+> app; L6 TestFlight = Sam's account steps) — Jobfaro CLI 1.54.0 · app 1.19.0 (see `ROADMAP.md` / `CHANGELOG.md`).
 > Scan discovers + filters roles; the model's `eval` scores fit — the scanner never scores.

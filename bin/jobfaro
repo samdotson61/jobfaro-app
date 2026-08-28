@@ -18,7 +18,7 @@ const PLANNED = {
   update: 'npm publish (Phase 7.5) — for now: git pull && npm install',
 }
 
-const COMMAND_ORDER = ['init', 'import', 'scan', 'seed', 'prescreen', 'eval', 'pipeline', 'pdf', 'outreach', 'tracker', 'dashboard', 'tui', 'serve', 'backend', 'calibrate', 'doctor', 'update']
+const COMMAND_ORDER = ['init', 'import', 'scan', 'seed', 'prescreen', 'eval', 'recheck', 'feedback', 'pipeline', 'pdf', 'outreach', 'tracker', 'dashboard', 'tui', 'serve', 'backend', 'calibrate', 'doctor', 'update']
 
 function printHelp(t) {
   console.log(`jobfaro — ${t('cli.tagline')}\n`)
@@ -75,6 +75,16 @@ async function main() {
     case 'eval': {
       const { runEval } = await import('../lib/commands/eval.mjs')
       await runEval(rest)
+      return 0
+    }
+    case 'recheck': {
+      const { runRecheck } = await import('../lib/commands/recheck.mjs')
+      await runRecheck(rest)
+      return 0
+    }
+    case 'feedback': {
+      const { runFeedback } = await import('../lib/commands/feedback.mjs')
+      await runFeedback(rest)
       return 0
     }
     case 'outreach': {

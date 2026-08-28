@@ -22,6 +22,7 @@ export * from '../../lib/search.mjs'
 // providers/_creds.mjs seam, dormant by default).
 export * from '../../lib/pipeline_pure.mjs'
 export * from '../../lib/outreach_pure.mjs'
+export * from '../../lib/liveness.mjs' // 1.53.0: listing-liveness probe (provider-contract based, fetch-only)
 export { resolveProvider, allProviders, providerIds, fetchJobDescription } from '../../providers/_contract.mjs'
 export { setUsaJobsCredsSource } from '../../providers/_creds.mjs'
 // The region employer catalog (generated from data/seed/employers.yml by scripts/gen-seed.mjs —

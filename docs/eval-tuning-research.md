@@ -103,9 +103,11 @@ Sub-criteria (model returns `strong | partial | none` + one quoted JD line of ev
 | `logistics` | 10% | metro/remote/relocation vs `target_regions` |
 | `education_gate` | 10% | **soft** under `no_degree` (flag, never auto-zero, per 4.5) |
 
-Code (not the model) maps categories → numbers, applies weights → **0–5 score**, then bands:
-**Apply ≥ 3.5 · Research 2.0–3.4 · Don't < 2.0** (thresholds live in config, tuned on the
-calibration set). Verdict schema (both backends, enforced):
+Code (not the model) maps categories → numbers, applies weights → **0–5 score**, then bands.
+> **Superseded (2026-08-28):** this section's draft thresholds (Apply ≥ 3.5 / Research 2.0–3.4) were
+> **dropped before ship** — the shipped scale is **Apply ≥ 4.0 · Research ≥ 3.5 · else Don't**,
+> hardcoded in `lib/bands.mjs` (single source of truth; NOT profile-configurable), decided 2026-06-13
+> (ROADMAP 8a.4). The draft below is kept as history. Verdict schema (both backends, enforced):
 
 ```json
 { "criteria": { "skills_match": {"judgment": "strong", "evidence": "..."}, … },
@@ -113,9 +115,12 @@ calibration set). Verdict schema (both backends, enforced):
   "flags": ["degree_required_soft"] }
 ```
 
-Prompt rules: pinned system prompt; temperature 0; reason-then-judge ordering; 2 anchor
-examples per band; identical prompt text on `api` and `local` so backend differences are
-measurable, not confounded.
+Prompt rules: pinned system prompt; temperature 0; reason-then-judge ordering; identical prompt
+text on `api` and `local` so backend differences are measurable, not confounded.
+> **Superseded (2026-08-28):** the draft's "2 anchor examples per band" was measured and **REJECTED**
+> in the 8a.4b A/B (few-shot made small models MORE lenient and dropped JSON validity 6/6 → 4/6) —
+> the shipped prompt carries no anchor examples, deliberately. And "temperature 0" was only enforced
+> by winc's `--eval` serve profile until 1.52.0 pinned it in code for every backend.
 
 ## 4. Offer evaluation data sources (feeds 8d)
 
@@ -244,3 +249,52 @@ experience `none` despite the prompt). Reviving the Research band for real requi
 set (N≥50–100)** to recalibrate the band thresholds from the actual score distribution and/or A/B the sub-
 criteria weights — the `calibrate --file` distribution report + a future thumbs-up/down feedback loop in the
 app are the data collectors that make that possible. Band thresholds must NOT be moved by guesswork.
+
+## §8 — The Apply-inflation audit + the measured v2 prompt (2026-08-28, v1.52.0)
+
+A full audit of the real pipeline (8,361 rows, 244 scored) found §7's bimodality had **flipped
+direction** on the decomposed engine: the 2026-08-19 run put **54% of scored roles in Apply** (30/56,
+Research 1/56) with a **17-way tie at 4.8** spanning an email-marketing internship, eight
+near-identical "Administrative Support III" postings, and a fleet-platform SWE role — against the same
+technical-PM résumé. Three prompt-side causes were identified in code:
+
+1. **One-sided caution.** The prompt reserved `none` ("use rarely") but said nothing symmetric about
+   `strong` — so the model answered `strong` reflexively (logistics `strong` on 46/50 real JDs).
+2. **`logistics`/`education` were never defined**, and no location ever reached the model — 10% of
+   every score was rated blind.
+3. **The JSON template anchored high**: 3 of its 5 example ratings were `strong`.
+
+**The v2 prompt** (shipped 1.52.0) defines all five criteria, adds the strict-at-both-ends rule
+("strong" only when the résumé explicitly demonstrates THIS criterion for THIS role's actual work),
+shows each rating level exactly once in the template, wires candidate location + target regions + job
+location into the user message, and floors the transferable-mode bridge rule (generic professional
+strengths are NOT bridges; never-done-the-core-work caps `experience` at `partial`). Still NO anchor
+examples (8a.4b's few-shot rejection stands). Temperature 0 is now pinned in code for every backend.
+
+**Measured** (50 live real JDs from the actual pipeline, hand-banded vs the real résumé/profile;
+old = shipped v1.51.0 prompt, byte-replicated; same serve, greedy, json_schema; the bench scripts,
+corpus, labels, and raw results are archived in `data/eval-bench-2026-08-28/` (local, gitignored),
+and the labeled set now lives at `data/calibration.json` — plain `jobfaro calibrate` runs it):
+
+| | old (v1) | v2 | hand labels |
+|---|---|---|---|
+| Apply / Research / Don't | 22 / **0** / 28 | 5 / 11 / 34 | 5 / 9 / 36 |
+| core-label agreement (30 non-debatable) | 87% | **90%** | — |
+| all-label agreement (50) | 56% | **64%** | — |
+| scores ≥ 4.75 | 7 | 3 | — |
+
+Every audited trap flipped honestly (intern 4.1→2.9, Employee Recognition 4.8→2.9, Emergency
+Communications 4.1→2.9, the Admin III clones 4.1–4.8→3.5/2.9), while the genuine matches ROSE
+(IS Project Manager II 4.4 Apply, Consultant Technology PM 4.5→5.0, CSS Tech II 4.8→5.0) — the
+deflation is discriminating, not blanket. **The Research band is alive for the first time (0→11).**
+
+Known cost: one under-accept — an entry Project Coordinator (labeled Apply) landed 3.4. It sits in
+the borderline-escalation zone (±0.3 of a threshold), which `--escalate` exists to re-score.
+
+**Thresholds stay 4.0/3.5.** The sweep's best alternative (4.0/3.9) wins by exactly one item on 30
+core labels — inside noise. Per §7's rule, thresholds move on N≥50–100 real labels only; 1.54.0's
+`jobfaro feedback` + the app thumbs are the collectors.
+
+**Recalibration discipline:** ANY wording change to `EVAL_SYSTEM`/`TRANSFERABLE_EVAL_NOTE`/
+`buildEvalUser` is a recalibration event — re-run this bench (old-vs-new on the labeled corpus)
+before shipping, exactly as the rejected 2026-07-09 prompt-reorder taught.

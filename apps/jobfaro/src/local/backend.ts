@@ -6,7 +6,8 @@
 // @ts-ignore — the engine is plain JS
 import {
   resolveProvider, fetchJobDescription, filterByLevel, filterByLocation,
-  mergeScanned, recordPrescreen, recordEval, parsePipeline, serializePipeline,
+  mergeScanned, recordPrescreen, recordEval, parsePipeline, serializePipeline, bandConflict,
+  recordListingChecks, checkListing, isEvaluated, isTracked,
   prescreenRole, reasonLine, paySummary, relevanceScore, expandQueryTerms,
   prepEval, buildVerdict, evalSystemFor, EVAL_JSON_SCHEMA,
   TAILOR_SYSTEM, buildTailorUser, TAILOR_JSON_SCHEMA, parseEvalJson, coverIsComplete, fillSignature, assembleTailoredCv, directiveBlock,
@@ -245,11 +246,18 @@ export async function localCall(path: string, method: 'GET' | 'POST', body: any)
       const profile = await readProfile();
       let jd = p.jd || '';
       let title = '';
+      // Job location for the logistics criterion (1.52.0): the pipeline row's, else the provider's.
+      let loc = p.location || '';
+      if (p.url && !loc) {
+        const row = (await readPipe()).find((r: any) => r.url === p.url);
+        loc = (row && row.location) || '';
+      }
       if (!jd && p.url) {
         try {
           const d = await fetchJobDescription(p.url);
           jd = (d && d.description) || '';
           title = (d && d.title) || '';
+          loc = loc || (d && d.location) || '';
         } catch { /* handled by the empty-JD guard */ }
       }
       if (!String(jd).trim()) return { ok: true, skipped: true, score: null, band: '', recommendation: "Job description unavailable — can't assess fit (the listing may have expired or be JS-rendered)." };
@@ -261,14 +269,40 @@ export async function localCall(path: string, method: 'GET' | 'POST', body: any)
       // returns a confident-but-meaningless Apply. Refuse honestly instead.
       if (!String(cv).trim()) return { ok: true, skipped: true, score: null, band: '', recommendation: 'No résumé on file — upload one first so fit can be judged against your real experience.' };
       const transferable = typeof p.transferable === 'boolean' ? p.transferable : Boolean(evalProfile.transferable_skills);
-      const { gates, decision, user } = prepEval({ jd, cv, profile: evalProfile, today: today(), title });
+      const { gates, decision, user } = prepEval({ jd, cv, profile: evalProfile, today: today(), title, location: loc });
       const r = await completionJson({ system: evalSystemFor(transferable), user, schema: EVAL_JSON_SCHEMA, maxTokens: 1024 });
       return buildVerdict({ text: r.text, jd, gates, decision, profile: evalProfile, transferable, model: r.model, backend: 'local-embedded', runtime: 'llama.rn' });
     }
 
+    // Listing liveness (1.53.0) — mirrors serve /recheck: only positive board signals are recorded;
+    // 'unknown' probes change nothing. Native apps fetch boards directly (no CORS), same as scanning.
+    if (path === '/recheck') {
+      const rows = await readPipe();
+      const targets = p.url
+        ? rows.filter((r: any) => r.url === p.url)
+        : rows.filter((r: any) => r.url && isEvaluated(r) && (p.all || (!isTracked(r) && (r.band === 'apply' || r.band === 'research'))));
+      const checks: any[] = [];
+      let unknown = 0;
+      for (const row of targets) {
+        const r = await checkListing(row.url);
+        if (r.state === 'unknown') unknown++;
+        else checks.push({ url: row.url, state: r.state });
+        await new Promise((rr) => setTimeout(rr, 300));
+      }
+      const { rows: out } = recordListingChecks(rows, checks, today());
+      await writePipe(out);
+      const gone = checks.filter((c) => c.state === 'gone').length;
+      return { ok: true, checked: targets.length, live: checks.length - gone, gone, unknown, rows: out };
+    }
+
     if (path === '/eval/save') {
       if (!p.url || !Number.isFinite(Number(p.score))) return { ok: false, status: 400, error: 'url + finite score required' };
-      const rows = recordEval(await readPipe(), { url: p.url, score: p.score, band: p.band, recommendation: p.recommendation, company: p.company, role: p.role, location: p.location }, today());
+      // 1.52.0 honesty (mirrors serve): the band always derives from the score, and only an
+      // engine-verdict save may claim 'engine' provenance.
+      const { derived, conflict } = bandConflict(Number(p.score), p.band);
+      if (conflict) return { ok: false, status: 400, error: `band "${p.band}" contradicts score ${p.score} (derives to "${derived}")` };
+      const source = p.source === 'engine' ? 'engine' : 'manual';
+      const rows = recordEval(await readPipe(), { url: p.url, score: p.score, band: derived, recommendation: p.recommendation, company: p.company, role: p.role, location: p.location, source }, today());
       await writePipe(rows);
       return { ok: true };
     }

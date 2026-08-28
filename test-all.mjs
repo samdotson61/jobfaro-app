@@ -26,7 +26,9 @@ import { selectEmployers, toPortals } from './lib/seed.mjs'
 import { parseResumeText } from './lib/resume.mjs'
 import { renderDashboard, analyze } from './lib/commands/dashboard.mjs'
 import { renderTui, pipelineView } from './lib/commands/tui.mjs'
-import { mergeScanned, recordEval, serializePipeline, band, isEvaluated, isTracked, setStatus, pruneScanned, PIPELINE_COLS, recordPrescreen, pendingQueue, roleKey, resolveAlias } from './lib/evaluations.mjs'
+import { mergeScanned, recordEval, serializePipeline, parsePipeline, band, bandConflict, isEvaluated, isTracked, setStatus, pruneScanned, PIPELINE_COLS, recordPrescreen, pendingQueue, roleKey, resolveAlias, recordListingChecks, markListingsFromScan } from './lib/evaluations.mjs'
+import { classifyFetchError } from './lib/liveness.mjs'
+import { recheckTargets } from './lib/commands/recheck.mjs'
 import { extractYearsRequired, extractDegreeGate, extractGates, screenDecision, prescreenRole, freshnessPoints, reasonLine, blendSalary, extractCredential, extractField, cvHasField, cvHasCredential, isHardIdentity, extractSponsorship } from './lib/prescreen.mjs'
 import { extractPay, bandVsTarget, formatPay, paySummary, SALARY_TOLERANCE, SALARY_FLOOR } from './lib/salary.mjs'
 import { normalizeResumeDates, monthYear } from './lib/dates.mjs'
@@ -35,7 +37,8 @@ import { baseRoleTitle, peopleFinderLinks, businessDaysBetween, canContact, canF
 import { trackerRowsFrom } from './lib/tracker.mjs'
 import { cvToHtml, matchedKeywords } from './lib/cv_render.mjs'
 import http from 'node:http'
-import { resolveBackend, isLoopbackUrl, parseVerdict, selectActive, backendHealth, callMessages, callOpenAI, callBackend, evaluate, WINC_DEFAULT_URL, LOCAL_RUNTIMES } from './lib/inference.mjs'
+import { resolveBackend, isLoopbackUrl, selectActive, backendHealth, callMessages, callOpenAI, callBackend, WINC_DEFAULT_URL, LOCAL_RUNTIMES } from './lib/inference.mjs'
+import * as inferenceModule from './lib/inference.mjs'
 import { scoreFromJudgments, parseEvalJson, stripPII, clampVerdict, buildEvalUser, evalRole, buildVerdict, prepEval } from './lib/eval_engine.mjs'
 import { bandAgreement, buildBatchRequests, parseBatchResults, clampLogEntry } from './lib/eval_ops.mjs'
 import { expandQueryTerms, relevanceScore, parseIntent } from './lib/search.mjs'
@@ -48,7 +51,7 @@ import { coverIsComplete, assembleTailoredCv, TAILOR_JSON_SCHEMA, buildTailorUse
 import { effectiveDirectives, contentHash, recordVariant } from './lib/customize_store.mjs'
 import { parsePreConfirm, isBorderline, evalSystemFor, preConfirmSystemFor } from './lib/eval_engine.mjs'
 import { resolvePay, socForTitle, loadWages, loadSocMap } from './lib/pay.mjs'
-import { parseNextCount, reportFooterLines, NEXT_MAX } from './lib/commands/eval.mjs'
+import { parseNextCount, reportFooterLines, distributionWarning, NEXT_MAX } from './lib/commands/eval.mjs'
 import { findRoleMatches } from './lib/commands/tailor.mjs'
 import { resolveJdSafe } from './lib/commands/_jd.mjs'
 import { renderRadar, renderSweep, fmtEta, fmtElapsed, visibleLength, createRadar, SWEEP_FRAMES } from './lib/progress.mjs'
@@ -1037,17 +1040,13 @@ test('inference: isLoopbackUrl gates the no-TLS local path', () => {
   for (const u of ['https://api.anthropic.com', 'http://evil.example.com', 'not a url']) assert.ok(!isLoopbackUrl(u), u)
 })
 
-test('inference: parseVerdict reads the modes/eval.md format; band falls back to the score', () => {
-  assert.deepEqual(parseVerdict('Fit score: 4.2 (Apply)\nRecommendation: strong fit'), { score: 4.2, band: 'apply', recommendation: 'strong fit' })
-  assert.equal(parseVerdict('Fit score: 3.6').band, 'research') // band derived from score when no tag
-  assert.equal(parseVerdict('Fit score: 2.0').band, 'dont')
-  assert.equal(parseVerdict('no score here').score, null)
-  // band comes from the score line's tag, not stray prose (a 2B model's preamble must not hijack it)
-  assert.deepEqual(parseVerdict("don't rule it out — Fit score: 4.8 (Apply)"), { score: 4.8, band: 'apply', recommendation: '' })
-  assert.equal(parseVerdict('Fit score: 4.5\nRecommendation: research the salary, then apply').band, 'apply') // no tag → from score
-  // off-rubric numbers (model drifted to 0–10 / 0–100) are unparsed, never a truncated wrong score
-  assert.equal(parseVerdict('Fit score: 10').score, null)
-  assert.equal(parseVerdict('Fit score: 50').score, null)
+test('inference: the legacy holistic eval path stays removed (1.52.0)', () => {
+  // parseVerdict/EVAL_SYSTEM/evaluate let the model emit the number directly — no gates, no clamp, no
+  // PII strip, résumé defaulting to '(none provided)'. Every eval must go through lib/eval_engine.mjs;
+  // this guard keeps the footgun from quietly coming back.
+  assert.equal(inferenceModule.parseVerdict, undefined)
+  assert.equal(inferenceModule.EVAL_SYSTEM, undefined)
+  assert.equal(inferenceModule.evaluate, undefined)
 })
 
 test('inference: backendHealth — loopback up is true, closed port false, non-loopback false', async () => {
@@ -1083,16 +1082,12 @@ test('inference: selectActive resolves local/api/auto; auto falls back to api wh
   }
 })
 
-test('inference: callMessages + evaluate complete a round-trip and parse the verdict (mock backend)', async () => {
+test('inference: callMessages completes a round-trip against a mock backend', async () => {
   const m = await mockBackend()
   const active = { kind: 'local', baseUrl: m.url, key: '', model: '' }
   const r = await callMessages(active, { system: 'sys', user: 'hi', maxTokens: 64 })
   assert.ok(r.text.includes('Fit score'))
   assert.deepEqual(r.usage, { input_tokens: 40, output_tokens: 12 })
-  const v = await evaluate({ active, jd: 'Data Analyst — SQL, Excel.', cv: 'Analyst with SQL.', today: '2026-06-13' })
-  assert.equal(v.score, 4.2)
-  assert.equal(v.band, 'apply')
-  assert.equal(v.backend, 'local')
   await m.close()
 })
 
@@ -1132,8 +1127,6 @@ test('inference: 8b.3 OpenAI-compat shim — health, selectActive, and an eval r
   const r = await callOpenAI(active, { system: 's', user: 'u' })
   assert.ok(r.text.includes('Fit score'))
   assert.deepEqual(r.usage, { input_tokens: 30, output_tokens: 9 }) // OpenAI usage mapped to the Messages shape
-  const v = await evaluate({ active, jd: 'Data Analyst — SQL.', cv: 'Analyst with SQL.', today: '2026-06-14' })
-  assert.equal(v.score, 4.0); assert.equal(v.band, 'apply'); assert.equal(v.runtime, 'ollama') // callBackend dispatched to OpenAI
   await m.close()
 })
 
@@ -1233,6 +1226,11 @@ test('8a: buildEvalUser injects the verified gate facts + today, and the JD/CV',
   assert.ok(u.includes('Minimum years of experience required: 5'))
   assert.ok(u.includes('Need SQL') && u.includes('I know SQL'))
   assert.doesNotThrow(() => buildEvalUser({ jd: 'x', cv: 'y', profile: {}, gates: {}, today: '2026-06-14' })) // partial/empty gates are null-safe
+  // 1.52.0: the logistics criterion is no longer rated blind — candidate location, target regions, and
+  // the job's location all reach the model (the audit found logistics was 10% free points without them).
+  const loc = buildEvalUser({ jd: 'x', cv: 'y', profile: { location: 'Cincinnati, OH', target_regions: ['midwest'] }, gates, today: '2026-06-14', location: 'Columbus, OH' })
+  assert.ok(loc.includes('Candidate location: Cincinnati, OH') && loc.includes('Target region(s): midwest') && loc.includes('Job location: Columbus, OH'))
+  assert.ok(buildEvalUser({ jd: 'x', cv: 'y', profile: {}, gates, today: '' }).includes('Job location: not stated')) // absent location stays honest
 })
 
 test('8a: evalRole runs the full pipeline against a backend (mock) — score, band, clamp, pay merge', async () => {
@@ -1643,6 +1641,84 @@ test('fix: pipeline — comma-containing alias URLs resolve; recordEval guards a
   assert.equal(good.status, 'evaluated')
 })
 
+test('1.52.0 honesty: bandConflict — an explicit band may only agree with its score', () => {
+  assert.deepEqual(bandConflict(4.2, 'apply'), { derived: 'apply', conflict: false })
+  assert.deepEqual(bandConflict(1.0, 'apply'), { derived: 'dont', conflict: true }) // the false-confidence combo
+  assert.deepEqual(bandConflict(3.7, 'dont'), { derived: 'research', conflict: true })
+  assert.deepEqual(bandConflict(3.7, ''), { derived: 'research', conflict: false }) // no explicit band → derive
+  assert.deepEqual(bandConflict(3.7, 'bogus'), { derived: 'research', conflict: false }) // non-band strings never block
+})
+
+test('1.52.0 provenance: recordEval persists eval_source; blank keeps the prior value', () => {
+  const base = [{ url: 'u1', company: 'A', role: 'R', location: '', status: 'scanned', score: '', band: '', recommendation: '', first_seen: '2026-08-28', eval_source: '' }]
+  const manual = recordEval(base, { url: 'u1', score: 4.2, source: 'manual' }, '2026-08-28').find((r) => r.url === 'u1')
+  assert.equal(manual.eval_source, 'manual')
+  const engine = recordEval([manual], { url: 'u1', score: 4.4, source: 'engine' }, '2026-08-28').find((r) => r.url === 'u1')
+  assert.equal(engine.eval_source, 'engine') // a re-eval refreshes provenance
+  const keep = recordEval([engine], { url: 'u1', score: 4.5 }, '2026-08-28').find((r) => r.url === 'u1')
+  assert.equal(keep.eval_source, 'engine') // no source stated → keep what the row had
+  // Older pipeline files (no eval_source column) read as '' and round-trip without corruption.
+  const parsed = parsePipeline('company\trole\turl\tscore\nA\tR\tu1\t4.2\n')
+  assert.equal(parsed[0].eval_source, '')
+})
+
+test('1.53.0 liveness: classifyFetchError — only a positive 403/404/410 board answer means gone', () => {
+  assert.equal(classifyFetchError('HTTP 404 for https://x.test/j'), 'gone')
+  assert.equal(classifyFetchError('HTTP 403 for https://x.wd5.myworkdayjobs.com/x'), 'gone') // Workday CXS unposted
+  assert.equal(classifyFetchError('HTTP 410 for https://x.test/j'), 'gone')
+  assert.equal(classifyFetchError('HTTP 500 for https://x.test/j'), 'unknown') // a broken board proves nothing
+  assert.equal(classifyFetchError('fetch failed: ECONNREFUSED'), 'unknown')
+  assert.equal(classifyFetchError(''), 'unknown')
+})
+
+test('1.53.0 liveness: recordListingChecks stamps live/gone + date; unknown is never recorded; aliases resolve', () => {
+  const rows = [
+    { url: 'u1', status: 'evaluated', score: 4.5, band: 'apply', aliases: '', listing_state: '', checked: '' },
+    { url: 'u2', status: 'evaluated', score: 4.1, band: 'apply', aliases: 'u2b', listing_state: '', checked: '' },
+    { url: 'u3', status: 'evaluated', score: 3.7, band: 'research', aliases: '', listing_state: 'live', checked: '2026-08-01' },
+  ]
+  const { rows: out, applied } = recordListingChecks(rows, [
+    { url: 'u1', state: 'gone' },
+    { url: 'u2b', state: 'live' }, // check on an absorbed alias lands on the survivor
+    { url: 'u3', state: 'unknown' }, // must be ignored even if a caller passes it
+  ], '2026-08-28')
+  assert.equal(applied, 2)
+  assert.deepEqual(out.map((r) => [r.listing_state, r.checked]), [['gone', '2026-08-28'], ['live', '2026-08-28'], ['live', '2026-08-01']])
+})
+
+test('1.53.0 liveness: markListingsFromScan is host-scoped — full board in, filtered-out roles stay live', () => {
+  const rows = [
+    { url: 'https://boards.a.test/j/1', status: 'evaluated', band: 'apply', aliases: '', listing_state: '', checked: '' }, // still on board
+    { url: 'https://boards.a.test/j/2', status: 'evaluated', band: 'apply', aliases: '', listing_state: '', checked: '' }, // vanished from board
+    { url: 'https://boards.b.test/j/9', status: 'applied', aliases: '', listing_state: '', checked: '' }, // host NOT scanned → untouched
+    { url: 'https://boards.a.test/j/3', status: 'scanned', aliases: '', listing_state: '', checked: '' }, // scanned rows are prune's job
+  ]
+  // The active set is the PRE-FILTER board list: j/1 is on it even if level/region toggles filtered it
+  // from this scan's kept list — that's why scan.mjs passes allSeen, not allKept (a filtered-but-posted
+  // role must never be marked gone).
+  const active = new Set(['https://boards.a.test/j/1', 'https://boards.a.test/j/77'])
+  const { rows: out, live, gone } = markListingsFromScan(rows, active, '2026-08-28')
+  assert.equal(live, 1)
+  assert.equal(gone, 1)
+  assert.deepEqual(out.map((r) => r.listing_state), ['live', 'gone', '', ''])
+  assert.equal(out[1].checked, '2026-08-28')
+})
+
+test('1.53.0 liveness: pendingQueue excludes gone listings; recheckTargets picks the actionable band rows', () => {
+  const rows = [
+    { url: 'u1', status: 'scanned', score: '', band: '', prescreen: '90', screen_reason: '', listing_state: '' },
+    { url: 'u2', status: 'scanned', score: '', band: '', prescreen: '95', screen_reason: '', listing_state: 'gone' }, // dead → never queued for eval
+    { url: 'u3', status: 'evaluated', score: 4.5, band: 'apply', screen_reason: '', listing_state: '' },
+    { url: 'u4', status: 'evaluated', score: 3.7, band: 'research', screen_reason: '', listing_state: '' },
+    { url: 'u5', status: 'evaluated', score: 1.2, band: 'dont', screen_reason: '', listing_state: '' },
+    { url: 'u6', status: 'applied', score: 4.5, band: 'apply', screen_reason: '', listing_state: '' }, // tracked → default recheck skips
+  ]
+  assert.deepEqual(pendingQueue(rows).map((r) => r.url), ['u1'])
+  assert.deepEqual(recheckTargets(rows).map((r) => r.url), ['u3', 'u4']) // default: un-tracked apply/research
+  assert.deepEqual(recheckTargets(rows, { all: true }).map((r) => r.url), ['u3', 'u4', 'u5', 'u6'])
+  assert.deepEqual(recheckTargets(rows, { url: 'u5' }).map((r) => r.url), ['u5'])
+})
+
 test('search: expandQueryTerms drops stopwords; relevanceScore ranks + cuts by intent', () => {
   const terms = expandQueryTerms('entry-level product manager roles, remote')
   assert.ok(terms.keywords.includes('product') && terms.keywords.includes('manager'))
@@ -1762,7 +1838,7 @@ test('sponsorship: recordPrescreen notes — set, explicit-clear, and preserve-o
   assert.equal(cleared[0].notes, '')
   // pipeline round-trip carries the new column; a legacy file without it parses to ''
   const tsv = serializePipeline(set1)
-  assert.ok(tsv.split('\n')[0].endsWith('\tnotes'))
+  assert.ok(tsv.split('\n')[0].endsWith('\tnotes\teval_source\tlisting_state\tchecked'))
 })
 
 test('phase10: engine seed.mjs is in lockstep with data/seed/employers.yml (regen: node scripts/gen-seed.mjs)', async () => {
@@ -1774,7 +1850,7 @@ test('phase10: engine seed.mjs is in lockstep with data/seed/employers.yml (rege
 
 test('phase10: pure pipeline + outreach splits — parsePipeline round-trips; fs shells re-export unchanged', async () => {
   const pure = await import('./lib/pipeline_pure.mjs')
-  const rows = [{ company: 'A', role: 'R', url: 'https://a.test/1', location: 'X', score: '', band: '', recommendation: '', status: 'scanned', posted: '', first_seen: '2026-07-08', updated: '2026-07-08', prescreen: '', screen_reason: '', pay: '', aliases: '', notes: '' }]
+  const rows = [{ company: 'A', role: 'R', url: 'https://a.test/1', location: 'X', score: '', band: '', recommendation: '', status: 'scanned', posted: '', first_seen: '2026-07-08', updated: '2026-07-08', prescreen: '', screen_reason: '', pay: '', aliases: '', notes: '', eval_source: '', listing_state: '', checked: '' }]
   assert.deepEqual(pure.parsePipeline(pure.serializePipeline(rows)), rows) // pure round-trip
   // legacy text without the notes column parses with notes ''
   const legacy = 'company\trole\turl\nA\tR\thttps://a.test/1'
@@ -1886,6 +1962,18 @@ test('eval report footer: always names the report + views; offers --next 5/10/15
   assert.ok(!drained.includes('--next'), 'no evaluate-more nudge when nothing is pending')
   const es = reportFooterLines(getT('es'), { file: '/x.tsv', pending: 3 }).join('\n')
   assert.ok(es.includes('informe de empleos') && es.includes('--next 5'), 'Spanish footer holds parity')
+  // 1.52.0 scope line: every footer states that the employer itself isn't verified.
+  assert.ok(withPending.includes("employer itself isn't verified"), 'EN scope disclosure present')
+  assert.ok(es.includes('el empleador en sí no se verifica'), 'ES scope disclosure present')
+})
+
+test('1.52.0 honesty: distributionWarning fires only on a big, Apply-heavy run', () => {
+  const t = getT('en')
+  assert.equal(distributionWarning(t, { evaluated: 5, applyCount: 5 }), '') // too small to call a pattern
+  assert.equal(distributionWarning(t, { evaluated: 20, applyCount: 8 }), '') // 40% — healthy
+  const warn = distributionWarning(t, { evaluated: 20, applyCount: 15 })
+  assert.ok(warn.includes('15 of 20') && warn.includes('75%'), warn)
+  assert.ok(distributionWarning(getT('es'), { evaluated: 10, applyCount: 9 }).includes('Postúlate'), 'ES parity')
 })
 
 test('fix: dead JD links — findRoleMatches keeps every match; resolveJdSafe never escapes as a stack', async () => {

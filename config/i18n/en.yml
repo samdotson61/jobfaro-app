@@ -14,6 +14,8 @@ cli:
     seed: "Materialize portals from the region employer catalog"
     prescreen: "Gate + rank pending roles by likelihood before any eval (no model needed)"
     eval: "Evaluate a role against your résumé — fit score + report"
+    recheck: "Re-verify that scored listings are still posted (no model needed)"
+    feedback: "Rate a verdict 👍/👎 — builds the local set that calibrates the evaluator"
     pipeline: "Run scan, evaluate, and track end to end"
     pdf: "Render a tailored ATS résumé → output/ (HTML/PDF)"
     outreach: "Find people to contact about a role + keep follow-ups polite (drafts stay yours to send)"
@@ -50,6 +52,7 @@ scan:
   region_note: "{count} role(s) outside your region(s) were filtered out"
   eval_hint: "Discovered roles saved to your pipeline. Scan only finds roles — run `jobfaro eval <url>` to score fit (the model scores, not the scanner)."
   pruned: "{count} stale role(s) pruned (no longer listed on any board)"
+  listings_gone: "{count} scored role(s) are no longer on their board — marked \"no longer posted\" (kept, never deleted)"
 
 doctor:
   title: "Jobfaro doctor"
@@ -198,6 +201,7 @@ dashboard:
 
 tui:
   keys: "↑/↓ move · ⏎/o open · a applied · PgUp/PgDn g/G jump · s sort · 1/2/3 band · p pending · 0 all · c company · r refresh · q quit"
+  gone: "gone ✗"
   empty: "No roles yet — run `jobfaro scan` to discover roles, then `jobfaro eval <url>` to score them."
   none_match: "No roles match this filter."
   pending: "pending"
@@ -231,6 +235,9 @@ eval:
   save_hint: "It saves with: jobfaro eval --save --url <url> --score <0.0–5.0> --band <apply|research|dont> --company \"…\" --role \"…\" --note \"…\""
   save_usage: "Usage: jobfaro eval --save --url <url> --score <0.0–5.0> [--band apply|research|dont] [--company …] [--role …] [--note …]"
   saved: "Saved fit {score} ({band}) — {role}"
+  band_mismatch: "Refusing to save: band \"{band}\" contradicts score {score} (which derives to \"{derived}\"). The band always follows the score — drop --band or fix the score."
+  no_cv: "No résumé on file — refusing to score. Without a résumé the model invents one and returns a confident but meaningless verdict."
+  no_cv_hint: "Add your résumé (jobfaro import <file>, or save it as data/cv.md), then re-run."
   auto_backend_down: "No inference backend is ready ({reason})."
   auto_running: "Auto-evaluating {count} role(s) via the {backend} backend…"
   auto_no_jd: "skipped (couldn't fetch the JD): {role}"
@@ -246,7 +253,31 @@ eval:
   report_where: "Your jobs report: {file}"
   report_view: "View it: jobfaro tracker (table) · jobfaro tui (interactive) · jobfaro dashboard (web)"
   report_more: "Evaluate more ({pending} pending): jobfaro eval --next 5 · 10 · 15 — any number up to 50"
+  report_scope: "Scores judge the listing text against your résumé — the employer itself isn't verified."
+  dist_warn: "{applyCount} of {evaluated} verdicts landed in Apply ({pct}%) — unusually high. Rate a few (👍/👎 in the app) and run `jobfaro calibrate --feedback` to see if the evaluator is running hot."
   batch_waiting: "Batches job submitted — sweeping until the results land (the 50%-price tier takes its time)…"
+
+feedback:
+  title: "Rate a verdict"
+  usage: "Usage: jobfaro feedback <url | company-or-role text> --good | --bad"
+  saved: "Recorded on {role} @ {company} (scored {score} {band})"
+  none: "No evaluated role matches \"{target}\" — feedback labels a verdict, so the role must be scored first."
+  none_hint: "See scored roles: jobfaro tracker · score one: jobfaro eval --next"
+  ambiguous: "{count} scored roles match \"{target}\" — narrow it, or pass the exact --url:"
+  tally: "{n} label(s) so far — the evaluator agrees with you {agreement}% of the time."
+  calibrate_hint: "See where it's wrong: jobfaro calibrate --feedback"
+  more_hint: "{need} more label(s) and `jobfaro calibrate --feedback` starts telling you something real."
+
+recheck:
+  title: "Re-check listings"
+  none: "Nothing to re-check — no evaluated Apply/Research roles in the pipeline (use --all for every scored role, --url for one)."
+  running: "Re-checking {count} listing(s) against their boards…"
+  tally_live: "still posted"
+  tally_gone: "gone"
+  gone_line: "no longer posted: {company} — {role}"
+  done: "Re-check done — {live} still posted, {gone} no longer posted, {unknown} unreachable."
+  gone_note: "Gone roles keep their score and history, but leave the eval queue and show \"no longer posted\" — nothing is deleted."
+  unknown_note: "{count} board(s) couldn't be reached — those rows are unchanged (an unreachable board proves nothing)."
 
 backend:
   title: "Inference backend"
@@ -284,6 +315,7 @@ backend:
 calibrate:
   title: "Calibrate the evaluator"
   none: "No calibration set at {file}. Provide a JSON array of hand-banded roles (each: url or jd, plus expect)."
+  starter_note: "Using the bundled starter set (synthetic smoke check). Your own labeled set at {file} takes over once it exists — build it from real verdicts with `jobfaro feedback`."
   backend_down: "No inference backend is ready ({reason})."
   running: "Scoring {count} calibration role(s) via the {backend} backend…"
   result: "Band agreement: {overall}% over {n} roles."

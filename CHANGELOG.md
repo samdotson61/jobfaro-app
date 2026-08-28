@@ -4,6 +4,110 @@ All notable changes to Jobfaro are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and Jobfaro adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.54.0] — 2026-08-28
+
+**The feedback funnel opens to the CLI.** The evaluator's calibration path has depended on real
+👍/👎 labels since 1.43 — and the ledger sat at zero, because CLI-first users had no way to label a
+verdict. 148 tests green.
+
+### Added
+
+- **`jobfaro feedback <url | company-or-role> --good|--bad`** — rate a recorded verdict from the
+  terminal. Labels land in the local `data/eval_feedback.tsv` (never leaves the machine), each save
+  prints the running agreement tally, and at 10+ labels it points at `jobfaro calibrate --feedback`.
+  Ambiguous text targets list the candidates instead of guessing; unevaluated roles are refused
+  honestly (a label describes a verdict, so the verdict must exist). EN/ES.
+- **`jobfaro calibrate` is finally runnable out of the box.** It fell back to exit 1 forever because
+  no calibration fixture ever shipped. Now: `--file` wins, else your own `data/calibration.json`,
+  else a **bundled 12-item synthetic starter set** (`test/fixtures/calibration-set.json` — self-
+  contained JD+CV pairs covering seniority traps, license gates, transferable bridges, the
+  generic-competence trap, and a logistics mismatch), announced honestly as the smoke-check it is.
+- **App: a "Re-check listings" button** on the Apply tab (runs 1.53.0's liveness re-check and
+  rehydrates, so "no longer posted" pills reflect what the boards actually said).
+
+## [1.53.0] — 2026-08-28
+
+**Dead listings can no longer wear an Apply badge.** The 2026-08-28 audit live-checked all 32
+Apply-band rows in the real pipeline: **8 were no longer posted** — including both oldest ones,
+carried as green "Apply" for ~80 days. Evaluated rows were never re-checked anywhere. 147 tests
+green at this cut.
+
+### Added
+
+- **`jobfaro recheck`** — re-verifies that scored listings are still on their boards. Default scope:
+  evaluated, un-tracked Apply/Research rows (the ones you act on); `--all` for every scored row,
+  `--url` for one. Powered by the provider contract itself: a real JD fetch = **live**; a provider
+  HTTP 403/404/410 = **gone** (Workday's CXS API 403s unposted jobs, Greenhouse/iCIMS 404 closed
+  ones — verified against 32 real URLs); anything else = **unknown, recorded as nothing** — an
+  unreachable board proves nothing (honest-UI rule). Gone rows keep their score and history —
+  nothing is deleted — but leave the eval queue and render honestly everywhere: dimmed "gone ✗" in
+  the TUI, a "no longer posted" pill in the app (which also stops offering to score them), and a
+  yellow summary line. EN/ES, radar progress, `POST /recheck` on serve + the on-device backend.
+- **Scan-side liveness for free.** A `jobfaro scan` already sees each visited board's full posting
+  list — so evaluated/tracked rows on scanned hosts now get a live/gone stamp as a by-product.
+  Host-scoped (rows on unvisited boards are untouched, so `--company` scans are safe) and computed
+  from the **pre-filter** board list, so a still-posted role your level/region toggles exclude can
+  never be marked gone.
+- Pipeline columns `listing_state` + `checked` (header-named, older files read fine).
+
+## [1.52.0] — 2026-08-28
+
+**Eval integrity: the measured anti-inflation pass.** A full audit of the real pipeline found the
+evaluator handing out false confidence: the 2026-08-19 run put **54% of scored roles in Apply** with
+a **17-way tie at 4.8** spanning an email-marketing internship, eight identical admin-support
+postings, and a platform-SWE role — against the same technical-PM résumé — while the calibration
+loop had **zero labels ever collected**. Every change below was A/B-measured on 50 live real-pipeline
+JDs, hand-banded, before shipping (old prompt byte-replicated as the control; full write-up in
+[docs/eval-tuning-research.md §8](docs/eval-tuning-research.md)). 148 tests green.
+
+### Changed
+
+- **Eval prompt v2** (a deliberate recalibration event): defines all five criteria (v1 never told
+  the model what `logistics`/`education` meant), reserves `"strong"` as strictly as `"none"` (v1's
+  one-sided caution let the model rate `strong` reflexively — logistics was `strong` on 46/50 real
+  JDs *while being shown no location at all*), shows each rating level exactly once in the JSON
+  template (v1's template anchored high with 3× `"strong"`), and floors the transferable-skills
+  bridge rule: generic professional strengths are NOT bridges, and never-having-done the role's
+  core work caps `experience` at `partial`. Still no few-shot anchors (8a.4b's rejection stands).
+  **Measured: bands went 22 Apply / 0 Research / 28 Don't → 5 / 11 / 34 against hand labels of
+  5 / 9 / 36; core-label agreement 87% → 90%; the Research band is alive for the first time; the
+  genuine matches ROSE (the real PM fits now score 4.4–5.0).** Band thresholds stay 4.0/3.5 — the
+  sweep's best alternative wins by one item on 30 labels, inside noise; thresholds move on N≥50–100
+  real labels only.
+- **The job's location now reaches the model** (pipeline row → provider fallback), wired through
+  every entry point (CLI live + batch, serve, app on-device, calibrate) — closing the
+  logistics-rated-blind hole.
+- **Temperature 0 pinned in code** for eval + pre-confirm on every backend (it was only guaranteed
+  by winc's `--eval` serve profile; ollama/llamafile/api evals weren't reproducible).
+- **`backend --check` now canaries the REAL eval path** (decomposed engine, gates + clamp +
+  grammar-JSON). It used to exercise a separate legacy prompt that could pass while the actual
+  eval was broken.
+
+### Removed
+
+- **The legacy holistic eval path** (`parseVerdict`/`EVAL_SYSTEM`/`evaluate` in `lib/inference.mjs`):
+  it let the model emit the 0–5 number directly — no gates, no clamp, no PII strip, and a CV that
+  defaulted to `'(none provided)'`. A regression test keeps it from coming back.
+
+### Fixed
+
+- **A recorded band can no longer contradict its score.** `eval --save --score 1.0 --band apply`
+  used to persist as-is and render identically to an engine verdict. The band now always derives
+  from the score; a contradicting explicit band is refused (CLI, serve `/eval/save`, and the
+  on-device backend — one shared `bandConflict` rule).
+- **The CLI auto-eval was the one entry point that would score with no résumé on file** (the model
+  fabricates one and returns a confident, meaningless verdict — serve and the app already refused).
+  It now refuses honestly, EN/ES.
+- **Verdict provenance**: new `eval_source` pipeline column — `engine` (gated decomposed engine) vs
+  `manual` (`--save`, no gates ran) — so a hand-recorded score can't masquerade as an engine verdict.
+
+### Added
+
+- **An honest-distribution warning**: an auto-eval run of 8+ verdicts with ≥60% Apply prints a
+  running-hot note pointing at the feedback loop, instead of celebrating silently.
+- **A scope line on every eval report footer** (and the app's Apply tab): scores judge the *listing
+  text* against your résumé — the employer itself isn't verified.
+
 ## [1.51.0] — 2026-08-19
 
 ### Changed

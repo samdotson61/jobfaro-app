@@ -12,7 +12,7 @@ dominate US enterprise employers), evaluates each role against your résumé, ta
 cover letter, and tracks every application.
 
 > **Status:** Phases 0–7, 5.5, 7.7, 7.8, 8b, 8a, 8c, 8e + 8f **complete**, **Phase 10 L0–L5 shipped** —
-> **Jobfaro CLI `1.51.0`** + **app `1.18.0`**: bilingual core; **six live-verified
+> **Jobfaro CLI `1.54.0`** + **app `1.19.0`**: bilingual core; **six live-verified
 > scanner providers** (Workday, iCIMS, Greenhouse, Lever, Ashby + an opt-in JSON-LD reader) plus an opt-in
 > **USAJobs** federal aggregator (BYO free key); level + region
 > toggles and the `jobfaro init` wizard; the full **discover → prescreen → evaluate → track → build** pipeline —
@@ -82,6 +82,8 @@ jobfaro seed --region midwest --write   # add real employers for your region
 jobfaro prescreen      # gate + rank pending roles by likelihood (no model needed)
 jobfaro eval <url>     # evaluate a role against your résumé
 jobfaro eval --next 10 # auto-score the 10 best pending (5, 10, 15 … up to 50) — radar bar included
+jobfaro recheck        # re-verify scored listings are still posted (dead ones say so — no model needed)
+jobfaro feedback <role> --good|--bad  # rate a verdict; builds the local set that calibrates the evaluator
 jobfaro pipeline       # scan -> evaluate -> track, end to end
 jobfaro tailor [company] # AI: role-targeted CV summary + cover letter (grounded, local model)
 jobfaro pdf [company]  # tailored ATS résumé → output/ (HTML, +PDF with Playwright)
@@ -120,7 +122,7 @@ your first scan — `jobfaro init` walks you through it in English or Spanish, n
 
 - **American English + Spanish**, full parity (English primary) — across the CLI and the apps.
 - **Scanner for US enterprise** — Workday + iCIMS first, plus Greenhouse/Lever/Ashby.
-- **Discover → prescreen → evaluate pipeline** — `scan` finds and filters roles but **never scores them**; `jobfaro prescreen` screens hard gates (years required, active clearance, degree gates) **with a quoted reason — never silently** — and ranks the rest by skill overlap + freshness; the model's `jobfaro eval` scores fit **0–5** against your résumé and records an **Apply / Research / Don't** band. `jobfaro tui` shows discovered roles as *pending eval* until the model has scored them.
+- **Discover → prescreen → evaluate pipeline** — `scan` finds and filters roles but **never scores them**; `jobfaro prescreen` screens hard gates (years required, active clearance, degree gates) **with a quoted reason — never silently** — and ranks the rest by skill overlap + freshness; the model's `jobfaro eval` scores fit **0–5** against your résumé and records an **Apply / Research / Don't** band. `jobfaro tui` shows discovered roles as *pending eval* until the model has scored them. **Honest scope:** a score judges the *listing text* against your résumé — Jobfaro doesn't verify the employer behind it, and every eval report says so; `jobfaro recheck` re-verifies that scored listings are still posted (dead ones show "no longer posted" instead of a green Apply badge), and `jobfaro feedback` collects your 👍/👎 so `calibrate --feedback` can measure — not guess — how often the evaluator is right.
 - **A warm contact beats a cold application** — `jobfaro outreach` builds LinkedIn people-search links (you browse and choose; Jobfaro never scrapes or sends), drafts stay yours to send, and the polite cadence — 2 people per role, ONE follow-up after 5+ business days, then stop — is enforced in code.
 - **Region toggle** — Midwest by default; switch to Northeast/Southeast/Southwest/West/nationwide and the seeds, location filters, and search adapt.
 - **Level toggle** — entry by default; mid first-class; senior opt-in (ranks normally when chosen).

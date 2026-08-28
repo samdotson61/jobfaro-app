@@ -13,7 +13,7 @@ import { parseFlags, resolveLang, isDirectRun } from './lib/cli.mjs'
 import { resolveProvider } from './providers/_contract.mjs'
 import { filterByLevel } from './lib/levels.mjs'
 import { filterByLocation } from './lib/regions.mjs'
-import { upsertScanned, prunePipeline } from './lib/evaluations.mjs'
+import { upsertScanned, prunePipeline, upsertListingsFromScan } from './lib/evaluations.mjs'
 import { createRadar } from './lib/progress.mjs'
 import { color, symbol, heading } from './lib/ui.mjs'
 
@@ -88,6 +88,9 @@ export async function runScan(argv = []) {
   let excludedLevel = 0
   let excludedRegion = 0
   const allKept = []
+  // Every URL each board listed BEFORE level/region filters — the liveness marker must see the full
+  // board, or a still-posted role the current toggles exclude would be falsely marked gone (1.53.0).
+  const allSeen = []
   const queue = resolved.slice()
   const scanOne = async ({ portal, hit }) => {
     if (!hit) {
@@ -98,6 +101,7 @@ export async function runScan(argv = []) {
     radar.label(portal.company)
     try {
       const jobs = await hit.provider.fetch(hit.match, ctx)
+      for (const j of jobs) if (j && j.url) allSeen.push(j.url)
       const lvl = filterByLevel(jobs, levels)
       const loc = filterByLocation(lvl.kept, regions, { userMetro: profile.location })
       for (const j of loc.kept) allKept.push(j)
@@ -131,6 +135,11 @@ export async function runScan(argv = []) {
       const pruned = prunePipeline(new Set(allKept.map((j) => j.url)))
       if (pruned > 0) console.log(color.dim(t('scan.pruned', { count: pruned })))
     }
+    // Liveness for free (1.53.0): this scan saw each visited board's FULL posting list, so evaluated/
+    // tracked rows on those hosts get an honest live/gone stamp. Host-scoped, so partial and --company
+    // scans are safe — rows on unvisited boards are untouched.
+    const marked = upsertListingsFromScan(new Set(allSeen), date)
+    if (marked.gone > 0) console.log(color.yellow(t('scan.listings_gone', { count: marked.gone })))
     console.log('\n' + t('scan.eval_hint'))
   }
 

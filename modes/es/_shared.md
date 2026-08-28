@@ -49,6 +49,12 @@ Pondera estas dimensiones (el escáner ya filtró títulos y ubicaciones — tú
    equivalente", lenguaje de aprendizaje/certificaciones (decisivo para quienes no tienen título).
 5. **Ajuste de ubicación / región** — alineación con la(s) región(es) y remoto en EE. UU. (se amplía en la Fase 5).
 
+**Sé estricto en AMBOS extremos (1.52.0).** Una calificación máxima en cualquier dimensión exige que
+el currículum demuestre explícitamente esa dimensión para el trabajo real y cotidiano de ESTE puesto —
+la competencia profesional general, o la fortaleza en otro tipo de trabajo, es una calificación media,
+nunca máxima. Los pares candidato-puesto reales son mixtos; si todas las dimensiones parecen máximas,
+relee la descripción del puesto.
+
 ## Ajuste de nivel (inicial por defecto, senior opcional)
 
 `target_levels` es uno o más de `entry` (predeterminado), `mid`, `senior`. El escáner determinista

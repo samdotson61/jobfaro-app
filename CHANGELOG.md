@@ -4,6 +4,61 @@ All notable changes to Jobfaro are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and Jobfaro adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.56.0] — 2026-08-28
+
+**Jobfaro Desktop (beta 0.1.0) — Mac + Windows.** One double-clickable app for beta testers: the
+real `jobfaro serve` engine runs **in-process** on a free loopback port (the same code the CLI
+runs, vendored via `npm pack` — nothing forked) and hosts the exported Expo web app from the
+**same origin**, so there's no CORS, no token, and the GUI is byte-identical to the phone app.
+Tester data lives in their `~/.jobfaro`; job links open in their real browser; the packed app is
+read-only and ships no personal data. 151 tests green.
+
+### Added
+
+- **`apps/desktop/`** — Electron shell (`main.cjs`), GUI build (`build-gui.mjs` → Expo web export),
+  engine vendoring (`prepare-engine.mjs` → `npm pack` of the repo), and electron-builder packaging:
+  Mac zips (arm64 + x64, unsigned beta) and Windows NSIS + zip (x64 + arm64). `--smoke` is a
+  headless self-test — boots the engine, loads the GUI, probes the API through the same port,
+  clicks through onboarding to the Apply tab, and captures real screenshots; verified against both
+  the dev tree and the **packed** .app.
+- **`jobfaro serve --gui <dir>`** — serve also hosts a static web-app bundle from the API's own
+  origin (GET-only, path-confined, API routes win; unknown routes fall back to `index.html`).
+  Works standalone too: export the app for web, point `--gui` at it, open the printed URL.
+- **Cold-start restore on serve-backed surfaces**: the app's Apply queue now rehydrates from the
+  pipeline file in serve mode as well (previously native-only) — a desktop tester's scored roles
+  survive an app restart, same as on the phone.
+- An explicit `?serve=<base>` URL now **pins** the app's backend for that load (mode included) —
+  a stale persisted Settings entry can no longer point the desktop shell at a dead port.
+- **[docs/desktop-beta.md](docs/desktop-beta.md)** — the tester guide: install per-OS (unsigned-build
+  caveats), the one-time winc setup, the 30–60-minute session script, and exactly what the report
+  does and doesn't contain.
+
+## [1.55.0] — 2026-08-28
+
+**The beta loop: "Would you apply?" + the shareable report.** The thumbs question was reframed from
+rating the verdict (which requires understanding bands) to rating the ROLE — the question any
+tester can answer — and the session now exports as an analyzable, PII-free artifact. 151 tests green.
+
+### Changed
+
+- **The app's thumbs now ask "Would you apply to this role?"** (👍 I'd apply / 👎 Not for me, EN/ES).
+  The backend derives verdict-agreement from the answer per band — an Apply the tester would apply
+  to = the eval was right; a Don't they'd apply to anyway = wrong; **Research answers are recorded
+  but never scored as agreement** ("I'd apply" doesn't contradict "look closer first"). The raw
+  answer and the derived thumb are both kept (`would_apply` column, ledger stays back-compatible),
+  so `calibrate --feedback` and the report each get their axis. `POST /eval/feedback` accepts both
+  shapes on serve and the on-device backend; the CLI's `jobfaro feedback --good|--bad` keeps its
+  direct verdict-agreement meaning.
+
+### Added
+
+- **`jobfaro report`** — writes the beta report to `data/reports/beta-report-<date>.md` + `.json`:
+  funnel aggregates (scanned/prescreened/scored, band distribution, liveness, provenance), the
+  would-apply answers per role, the derived agreement rate per band, and an honest-limits footer.
+  **No personal data**: no résumé content, no name — only region/level/tuning settings (tested).
+- **`GET /report`** on serve (`?format=md` for markdown) + an **"📄 Export beta report"** button on
+  the app's Apply tab (web/desktop) that downloads the markdown.
+
 ## [1.54.1] — 2026-08-28
 
 ### Fixed

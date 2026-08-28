@@ -80,3 +80,22 @@ yet live-verified), the evaluator is bimodal on the small labeled set (the feedb
 recalibration once real thumbs accumulate), and the on-device hardware numbers (Metal speed, the in-app
 model-download UX) are unexercised until TestFlight. *(Resolved since this list was first written:
 first-run onboarding shipped 1.41; app persistence is per-device on both platforms since 1.45/1.47.)*
+
+## Desktop beta builds (1.56.0, `apps/desktop/`)
+
+The double-clickable Mac/Windows beta for testers ([docs/desktop-beta.md](docs/desktop-beta.md) is
+their guide). Build steps, from a fresh clone:
+
+```bash
+cd apps/desktop
+node prepare-engine.mjs   # npm-packs the repo root → vendor/jobfaro-<v>.tgz, installs it + all deps
+node build-gui.mjs        # exports the Expo app for web → gui/
+npx electron . --smoke    # self-test: engine + GUI + API through one port, screenshots to verify
+npx electron-builder --mac zip && npx electron-builder --mac zip --x64
+npx electron-builder --win nsis zip --x64 && npx electron-builder --win nsis zip
+```
+
+Artifacts land in `apps/desktop/dist-build/` (gitignored) — distribute the zips/exe directly for
+the beta (unsigned; the tester guide covers the OS warnings). Re-run `prepare-engine.mjs` after ANY
+engine change or version bump — the packed app ships the vendored tarball, not the working tree.
+Signing/notarization and a real icon are pre-1.0 items, not beta blockers.

@@ -16,6 +16,7 @@ cli:
     eval: "Evalúa un puesto frente a tu currículum — puntuación de ajuste + informe"
     recheck: "Verifica que los puestos puntuados sigan publicados (sin modelo)"
     feedback: "Califica un veredicto 👍/👎 — construye el conjunto local que calibra el evaluador"
+    report: "Escribe el informe beta (flujo + calificaciones + acuerdo, sin datos personales) en data/reports/"
     pipeline: "Ejecuta escanear, evaluar y registrar de principio a fin"
     pdf: "Genera un currículum ATS → output/ (HTML/PDF)"
     outreach: "Encuentra personas a quienes contactar sobre un puesto + mantén los seguimientos corteses (los borradores los envías tú)"
@@ -168,6 +169,7 @@ import:
 serve:
   title: "Servidor del motor de Jobfaro"
   up: "API del motor en {url} — POST /evaluate, /import; GET /health."
+  gui: "Interfaz en {url} (sirviendo {dir})"
   endpoints: "Las apps web/móvil hablan con este único socket (solo localhost)."
   stop: "Pulsa Ctrl-C para detener."
 
@@ -267,6 +269,13 @@ feedback:
   tally: "{n} etiqueta(s) hasta ahora — el evaluador coincide contigo el {agreement}% de las veces."
   calibrate_hint: "Ver dónde se equivoca: jobfaro calibrate --feedback"
   more_hint: "Con {need} etiqueta(s) más, `jobfaro calibrate --feedback` empieza a decirte algo real."
+
+report:
+  title: "Informe beta"
+  written: "Informe escrito: {file}"
+  summary: "{evaluated} puestos puntuados · {rated} calificados por ti · acuerdo del evaluador {agreement}"
+  no_ratings: "Aún no calificaste puestos — responde \"¿Postularías?\" en puestos puntuados (pulgares en la app o `jobfaro feedback`) y vuelve a ejecutar."
+  privacy: "El informe no contiene tu currículum ni datos personales más allá de la configuración de región/nivel — seguro para compartir."
 
 recheck:
   title: "Verificar puestos"

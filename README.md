@@ -12,7 +12,7 @@ dominate US enterprise employers), evaluates each role against your résumé, ta
 cover letter, and tracks every application.
 
 > **Status:** Phases 0–7, 5.5, 7.7, 7.8, 8b, 8a, 8c, 8e + 8f **complete**, **Phase 10 L0–L5 shipped** —
-> **Jobfaro CLI `1.54.1`** + **app `1.19.0`**: bilingual core; **six live-verified
+> **Jobfaro CLI `1.56.0`** + **app `1.20.0`**: bilingual core; **six live-verified
 > scanner providers** (Workday, iCIMS, Greenhouse, Lever, Ashby + an opt-in JSON-LD reader) plus an opt-in
 > **USAJobs** federal aggregator (BYO free key); level + region
 > toggles and the `jobfaro init` wizard; the full **discover → prescreen → evaluate → track → build** pipeline —
@@ -61,6 +61,10 @@ the code, so they work from any location.
 - **CLI (available now — the backbone)** — local-first. Scanning, prescreening, and tracking need no
   model; `jobfaro backend --install` adds the free private on-device model for eval/tailor, or bring your
   own AI CLI/API.
+- **Desktop app (beta builds for Mac + Windows — the tester surface)** — the full engine + the same GUI
+  as the phone app in one double-clickable window, running entirely on the tester's machine. Testers
+  answer **"Would you apply?"** on each scored role and export a **PII-free beta report** we analyze to
+  improve the evaluator. See [docs/desktop-beta.md](docs/desktop-beta.md).
 - **iPhone app (beta soon — the easiest way to try Jobfaro)** — the whole pipeline runs **on the phone**:
   scan → prescreen → evaluate → tailor → outreach, with the model downloaded in-app. No Mac, no server,
   no account; your résumé never leaves the device. A **TestFlight beta** is the next step
@@ -84,6 +88,7 @@ jobfaro eval <url>     # evaluate a role against your résumé
 jobfaro eval --next 10 # auto-score the 10 best pending (5, 10, 15 … up to 50) — radar bar included
 jobfaro recheck        # re-verify scored listings are still posted (dead ones say so — no model needed)
 jobfaro feedback <role> --good|--bad  # rate a verdict; builds the local set that calibrates the evaluator
+jobfaro report         # write the beta report (funnel + ratings + agreement, PII-free) to data/reports/
 jobfaro pipeline       # scan -> evaluate -> track, end to end
 jobfaro tailor [company] # AI: role-targeted CV summary + cover letter (grounded, local model)
 jobfaro pdf [company]  # tailored ATS résumé → output/ (HTML, +PDF with Playwright)

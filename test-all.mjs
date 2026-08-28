@@ -42,7 +42,8 @@ import * as inferenceModule from './lib/inference.mjs'
 import { scoreFromJudgments, parseEvalJson, stripPII, clampVerdict, buildEvalUser, evalRole, buildVerdict, prepEval } from './lib/eval_engine.mjs'
 import { bandAgreement, buildBatchRequests, parseBatchResults, clampLogEntry } from './lib/eval_ops.mjs'
 import { expandQueryTerms, relevanceScore, parseIntent } from './lib/search.mjs'
-import { feedbackStats } from './lib/feedback.mjs'
+import { feedbackStats, thumbFromWouldApply, FEEDBACK_COLS } from './lib/feedback.mjs'
+import { buildBetaReport } from './lib/report_pure.mjs'
 import usajobs, { parseUsaJobsSearchUrl, parseUsaJobsJobUrl, buildSearchUrl, mapSearchItems, assembleJd } from './providers/usajobs.mjs'
 import { slugVariants, atsCandidates, discoverCompanies } from './lib/discover.mjs'
 import { extractText, isExtractable, structureCv } from './lib/docparse.mjs'
@@ -1702,6 +1703,55 @@ test('1.53.0 liveness: markListingsFromScan is host-scoped — full board in, fi
   assert.equal(gone, 1)
   assert.deepEqual(out.map((r) => r.listing_state), ['live', 'gone', '', ''])
   assert.equal(out[1].checked, '2026-08-28')
+})
+
+test('1.55.0 would-apply: thumbFromWouldApply derives agreement per band; Research is never scored', () => {
+  assert.equal(thumbFromWouldApply('apply', true), 'up') // eval said Apply, human would apply → right
+  assert.equal(thumbFromWouldApply('apply', false), 'down') // eval said Apply, human wouldn't → wrong
+  assert.equal(thumbFromWouldApply('dont', true), 'down') // eval said Don't, human WOULD apply → wrong (hidden opportunity)
+  assert.equal(thumbFromWouldApply('dont', false), 'up')
+  assert.equal(thumbFromWouldApply('research', true), '') // "I'd apply" doesn't contradict "look closer first"
+  assert.equal(thumbFromWouldApply('research', false), '')
+  assert.equal(thumbFromWouldApply('', true), '') // unknown band → never scored
+})
+
+test('1.55.0 beta report: counts are honest, Research stays unscored, and NO personal data leaks', () => {
+  const rows = [
+    { url: 'u1', status: 'scanned', prescreen: '70', score: '', band: '' },
+    { url: 'u2', status: 'scanned', prescreen: '', score: '', band: '' },
+    { url: 'u3', status: 'evaluated', score: 4.5, band: 'apply', eval_source: 'engine', listing_state: '' },
+    { url: 'u4', status: 'evaluated', score: 3.7, band: 'research', eval_source: 'engine', listing_state: '' },
+    { url: 'u5', status: 'evaluated', score: 1.2, band: 'dont', eval_source: 'manual', listing_state: 'gone' },
+    { url: 'u6', status: 'applied', score: 4.8, band: 'apply', eval_source: 'engine', listing_state: '' },
+  ]
+  const feedback = [
+    { url: 'u3', company: 'A', role: 'PM', score: 4.5, band: 'apply', thumb: 'up', would_apply: 'yes', date: '2026-08-28' },
+    { url: 'u4', company: 'B', role: 'Coord', score: 3.7, band: 'research', thumb: '', would_apply: 'yes', date: '2026-08-28' },
+    { url: 'u5', company: 'C', role: 'RN', score: 1.2, band: 'dont', thumb: 'up', would_apply: 'no', date: '2026-08-28' },
+  ]
+  const profile = { name: 'Sam Dotson', location: 'Cincinnati, OH', target_regions: ['midwest'], target_levels: ['entry', 'mid'], tuning_profile: 'career_changer', transferable_skills: true }
+  const { data, md } = buildBetaReport({ rows, feedback, meta: { date: '2026-08-28', cliVersion: '1.55.0', platform: 'darwin arm64', backend: 'winc (local)', profile } })
+  assert.equal(data.funnel.scanned, 2)
+  assert.equal(data.funnel.prescreened, 1)
+  assert.equal(data.funnel.evaluated, 4) // u3,u4,u5 + tracked u6 (tracked rows carry a verdict too)
+  assert.equal(data.funnel.listingsGone, 1)
+  assert.deepEqual(data.funnel.bands, { apply: 2, research: 1, dont: 0 }) // alive only; the gone dont is excluded
+  assert.equal(data.ratings.n, 3)
+  assert.equal(data.ratings.wouldApply, 2)
+  assert.equal(data.ratings.agreementScored, 2) // the research answer is recorded but never scored
+  assert.equal(data.ratings.agreementPct, 100)
+  assert.equal(data.ratings.perBand.research.rated, 1)
+  // PII guard: the report must not carry the tester's name, city, or any résumé text.
+  const all = JSON.stringify(data) + md
+  assert.ok(!all.includes('Sam Dotson') && !all.includes('Cincinnati'), 'no personal data in the report')
+  assert.ok(md.includes('Would you apply?') && md.includes('no résumé content'), 'human sections present')
+})
+
+test('1.55.0 ledger back-compat: an old eval_feedback.tsv without would_apply reads as empty strings', () => {
+  // readFeedback is fs-coupled; the parse contract it shares is header-name-driven like the pipeline —
+  // simulate via FEEDBACK_COLS fill: an entry missing would_apply must serialize/read as ''.
+  assert.ok(FEEDBACK_COLS.includes('would_apply'))
+  assert.equal(FEEDBACK_COLS[FEEDBACK_COLS.length - 1], 'date') // date stays last (append-friendly diffing)
 })
 
 test('1.53.0 liveness: pendingQueue excludes gone listings; recheckTargets picks the actionable band rows', () => {

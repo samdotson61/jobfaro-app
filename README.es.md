@@ -14,7 +14,7 @@ puesto frente a tu currículum, adapta un CV y una carta de presentación compat
 registra cada postulación.
 
 > **Estado:** Fases 0–7, 5.5, 7.7, 7.8, 8b, 8a, 8c, 8e + 8f **completas**, **Fase 10 L0–L5 entregada** —
-> **Jobfaro CLI `1.54.1`** + **app `1.19.0`**: núcleo bilingüe; **seis escáneres
+> **Jobfaro CLI `1.56.0`** + **app `1.20.0`**: núcleo bilingüe; **seis escáneres
 > verificados en vivo** (Workday, iCIMS, Greenhouse, Lever, Ashby + un lector JSON-LD opcional) más un
 > agregador federal **USAJobs** opcional (con tu propia clave gratuita); selectores
 > de nivel y región y el asistente `jobfaro init`; la tubería completa **descubrir → prefiltrar → evaluar →
@@ -66,6 +66,11 @@ idioma y el catálogo de empleadores viajan con el código, así que funcionan d
 - **CLI (disponible hoy — la columna vertebral)** — local primero. Escanear, prefiltrar y registrar no
   necesitan modelo; `jobfaro backend --install` agrega el modelo local privado y gratuito para
   evaluar/adaptar, o usa tu propia CLI/API de IA.
+- **App de escritorio (builds beta para Mac + Windows — la superficie de pruebas)** — el motor completo +
+  la misma interfaz que la app del teléfono en una sola ventana de doble clic, corriendo por completo en
+  la máquina del probador. Los probadores responden **"¿Postularías?"** en cada puesto puntuado y exportan
+  un **informe beta sin datos personales** que analizamos para mejorar el evaluador. Ver
+  [docs/desktop-beta.md](docs/desktop-beta.md).
 - **App de iPhone (beta pronto — la forma más fácil de probar Jobfaro)** — toda la tubería corre **en el
   teléfono**: escanear → prefiltrar → evaluar → adaptar → contactar, con el modelo descargado dentro de
   la app. Sin Mac, sin servidor, sin cuenta; tu currículum nunca sale del dispositivo. El siguiente paso
@@ -91,6 +96,7 @@ jobfaro eval <url>     # evalúa un puesto frente a tu currículum
 jobfaro eval --next 10 # puntúa automáticamente los 10 mejores pendientes (5, 10, 15 … hasta 50) — con barra de radar
 jobfaro recheck        # verifica que los puestos puntuados sigan publicados (los retirados lo dicen — sin modelo)
 jobfaro feedback <puesto> --good|--bad  # califica un veredicto; construye el conjunto local que calibra el evaluador
+jobfaro report         # escribe el informe beta (flujo + calificaciones + acuerdo, sin datos personales) en data/reports/
 jobfaro pipeline       # escanear -> evaluar -> registrar, de principio a fin
 jobfaro tailor [empresa] # IA: resumen de CV + carta para el puesto (fundamentado, modelo local)
 jobfaro pdf [empresa]  # currículum adaptado para ATS → output/ (HTML, +PDF con Playwright)

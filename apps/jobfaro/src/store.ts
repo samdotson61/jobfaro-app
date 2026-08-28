@@ -264,10 +264,13 @@ export const useStore = create<State>()(persist((set, get) => ({
   hydrate: async () => {
     const h = await serveHealth();
     set({ serveUp: h.ok, modelUp: Boolean(h.backend && h.backend.up) });
-    // Local mode: the device's pipeline FILE is the durable store — restore the list from it when the
-    // in-memory cache is empty (e.g. after a cold start; the AsyncStorage cache is best-effort for
-    // multi-MB row sets). User state (an in-flight session's rows) always wins.
-    if (backendMode() === 'local' && get().scored.length === 0) {
+    // The pipeline FILE is the durable store — restore the list from it when the in-memory cache is
+    // empty (e.g. after a cold start; the AsyncStorage cache is best-effort for multi-MB row sets).
+    // Originally local-mode only; since 1.56.0 serve mode restores too — the desktop shell's in-process
+    // serve (and a `serve --gui` browser session) sit on the same machine's data home, and a tester's
+    // scored roles must survive an app restart there exactly like on the phone. User state (an
+    // in-flight session's rows) always wins; a blank first boot stays blank either way.
+    if ((backendMode() === 'local' || h.ok) && get().scored.length === 0) {
       try {
         const pj = await serveGet('/pipeline');
         if (pj && pj.ok !== false && Array.isArray(pj.rows) && pj.rows.length) set({ scored: rowsToScored(pj.rows) });
@@ -473,14 +476,15 @@ export const useStore = create<State>()(persist((set, get) => ({
     }
   },
 
-  // A thumbs on a verdict is a human label. Persist it locally (survives reload) AND append to the serve
-  // ledger so `jobfaro calibrate --feedback` can report where the eval disagrees with real users.
+  // The tester question is "Would you apply to this role?" (1.55.0) — a label on the ROLE, not on the
+  // verdict. The UI's 'up'/'down' means "I'd apply"/"not for me"; the backend derives verdict-agreement
+  // from it per band and stores both, so `calibrate --feedback` and the beta report each get their axis.
   rateVerdict: (url, thumb) => {
     set((s) => ({ feedback: { ...s.feedback, [url]: thumb } }));
     const v = get().verdicts[url];
     const row = get().scored.find((r) => r.url === url);
     servePost('/eval/feedback', {
-      url, thumb, score: v && v.score, band: v && v.band,
+      url, wouldApply: thumb === 'up', score: v && v.score, band: v && v.band,
       company: row && row.company, role: row && row.role,
     }).catch(() => {});
   },

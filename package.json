@@ -1,6 +1,6 @@
 {
   "name": "jobfaro",
-  "version": "1.54.1",
+  "version": "1.56.0",
   "description": "Bilingual (American English / Español) US job-search command center for new grads and people breaking into the workforce — region- and level-adaptable, privacy-first.",
   "type": "module",
   "bin": {
@@ -13,7 +13,7 @@
     "providers/",
     "modes/",
     "config/i18n/",
-    "config/profile.example.yml",
+    "config/profile.example.yml", "test/fixtures/",
     "config/portals.example.yml",
     "templates/",
     "commands/",

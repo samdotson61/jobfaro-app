@@ -1,0 +1,62 @@
+{
+  "name": "jobfaro-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Jobfaro Desktop (beta) — the full local job-search engine + the app GUI in one double-clickable window, for Mac and Windows beta testers.",
+  "main": "main.cjs",
+  "scripts": {
+    "build-gui": "node build-gui.mjs",
+    "start": "electron .",
+    "smoke": "electron . --smoke",
+    "dist:mac": "electron-builder --mac zip",
+    "dist:win": "electron-builder --win nsis zip",
+    "dist": "electron-builder --mac zip --win nsis zip",
+    "prepare-engine": "node prepare-engine.mjs"
+  },
+  "dependencies": {
+    "jobfaro": "file:vendor/jobfaro-1.56.0.tgz"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.0.0"
+  },
+  "build": {
+    "appId": "com.jobfaro.desktop",
+    "productName": "Jobfaro",
+    "artifactName": "Jobfaro-beta-${version}-${os}-${arch}.${ext}",
+    "directories": {
+      "output": "dist-build"
+    },
+    "files": [
+      "main.cjs",
+      "gui/**",
+      "node_modules/**",
+      "package.json"
+    ],
+    "asarUnpack": [],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "identity": null,
+      "target": [
+        {
+          "target": "zip",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
+      ]
+    },
+    "win": {
+      "target": [
+        "nsis",
+        "zip"
+      ]
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false
+    }
+  },
+  "author": "Sam Dotson"
+}

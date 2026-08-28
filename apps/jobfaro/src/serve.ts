@@ -13,27 +13,35 @@ let BASE = 'http://127.0.0.1:4320';
 let TOKEN = '';
 export type BackendMode = 'local' | 'serve';
 let MODE: BackendMode = Platform.OS === 'web' ? 'serve' : 'local';
-// Persisted override (Settings) — loads fast; the pre-hydration default is correct per-platform anyway.
-AsyncStorage.getItem('jobfaro-backend-config').then((raw) => {
-  if (!raw) return;
-  try {
-    const c = JSON.parse(raw);
-    if (c.mode === 'local' || c.mode === 'serve') MODE = c.mode;
-    if (typeof c.base === 'string' && c.base) BASE = c.base;
-    if (typeof c.token === 'string') TOKEN = c.token;
-  } catch { /* corrupt config → per-platform defaults */ }
-}).catch(() => {});
+// An explicit ?serve=<base> in the URL is authoritative for THIS load (1.56.0 — the desktop shell
+// injects its in-process serve port this way): the async persisted-config load must not clobber it,
+// or a stale Settings entry would point the desktop app at a dead port.
+let URL_PINNED = false;
 try {
   // @ts-ignore — web only
   if (typeof window !== 'undefined' && window.location && window.location.search) {
     // @ts-ignore
     const q = new URLSearchParams(window.location.search);
-    if (q.get('serve')) BASE = q.get('serve') as string;
+    if (q.get('serve')) {
+      BASE = q.get('serve') as string;
+      MODE = 'serve'; // an explicit serve URL means serve mode, whatever was persisted
+      URL_PINNED = true;
+    }
     if (q.get('token')) TOKEN = q.get('token') as string;
   }
 } catch {
   /* native / no window */
 }
+// Persisted override (Settings) — loads fast; the pre-hydration default is correct per-platform anyway.
+AsyncStorage.getItem('jobfaro-backend-config').then((raw) => {
+  if (!raw) return;
+  try {
+    const c = JSON.parse(raw);
+    if (!URL_PINNED && (c.mode === 'local' || c.mode === 'serve')) MODE = c.mode;
+    if (!URL_PINNED && typeof c.base === 'string' && c.base) BASE = c.base;
+    if (!URL_PINNED && typeof c.token === 'string') TOKEN = c.token;
+  } catch { /* corrupt config → per-platform defaults */ }
+}).catch(() => {});
 
 export function configureServe(o: { base?: string; token?: string; mode?: BackendMode; persist?: boolean }) {
   if (o.base) BASE = o.base;

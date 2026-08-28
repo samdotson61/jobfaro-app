@@ -7,7 +7,7 @@
 import {
   resolveProvider, fetchJobDescription, filterByLevel, filterByLocation,
   mergeScanned, recordPrescreen, recordEval, parsePipeline, serializePipeline, bandConflict,
-  recordListingChecks, checkListing, isEvaluated, isTracked,
+  recordListingChecks, checkListing, isEvaluated, isTracked, thumbFromWouldApply,
   prescreenRole, reasonLine, paySummary, relevanceScore, expandQueryTerms,
   prepEval, buildVerdict, evalSystemFor, EVAL_JSON_SCHEMA,
   TAILOR_SYSTEM, buildTailorUser, TAILOR_JSON_SCHEMA, parseEvalJson, coverIsComplete, fillSignature, assembleTailoredCv, directiveBlock,
@@ -67,7 +67,7 @@ function extractFields(text: string): { name?: string; location?: string } {
 }
 
 // ---- feedback ledger (same TSV cols as the CLI's data/eval_feedback.tsv, de-dup by url) ----
-const FEEDBACK_COLS = ['url', 'company', 'role', 'score', 'band', 'thumb', 'date'];
+const FEEDBACK_COLS = ['url', 'company', 'role', 'score', 'band', 'thumb', 'would_apply', 'date']; // 1.55.0: + would_apply (mirrors lib/feedback.mjs)
 async function appendFeedback(entry: Record<string, any>): Promise<void> {
   const esc = (v: any) => String(v == null ? '' : v).replace(/[\t\n]/g, ' ');
   const text = await readText(FILES.feedback);
@@ -308,8 +308,13 @@ export async function localCall(path: string, method: 'GET' | 'POST', body: any)
     }
 
     if (path === '/eval/feedback') {
-      if (!p.url || (p.thumb !== 'up' && p.thumb !== 'down')) return { ok: false, status: 400, error: 'url and thumb (up|down) required' };
-      await appendFeedback({ url: p.url, company: p.company || '', role: p.role || '', score: p.score != null ? p.score : '', band: p.band || '', thumb: p.thumb, date: today() });
+      // 1.55.0 (mirrors serve): accepts {thumb} = direct verdict-agreement, or {wouldApply} = the
+      // tester question "Would you apply?" with the thumb derived per band (Research → recorded, unscored).
+      const hasThumb = p.thumb === 'up' || p.thumb === 'down';
+      const hasWould = typeof p.wouldApply === 'boolean';
+      if (!p.url || (!hasThumb && !hasWould)) return { ok: false, status: 400, error: 'url plus thumb (up|down) or wouldApply (boolean) required' };
+      const thumb = hasThumb ? p.thumb : thumbFromWouldApply(p.band || '', p.wouldApply);
+      await appendFeedback({ url: p.url, company: p.company || '', role: p.role || '', score: p.score != null ? p.score : '', band: p.band || '', thumb, would_apply: hasWould ? (p.wouldApply ? 'yes' : 'no') : '', date: today() });
       return { ok: true };
     }
 

@@ -1,8 +1,22 @@
 import { useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import { useStore } from '@/src/store';
+import { serveBase, backendMode } from '@/src/serve';
 import { t } from '@/src/engine';
 import { Btn, C, Card, Field, H, Pill, Sub, bandColor } from '@/src/ui';
+
+// Export the beta report (1.55.0, web/desktop only): fetch the PII-free markdown from serve and hand it
+// to the browser as a download — works identically in a plain browser tab and the Electron shell.
+async function exportBetaReport(): Promise<void> {
+  const r = await fetch(`${serveBase()}/report?format=md`);
+  if (!r.ok) throw new Error(`report HTTP ${r.status}`);
+  const blob = new Blob([await r.text()], { type: 'text/markdown' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `jobfaro-beta-report-${new Date().toISOString().slice(0, 10)}.md`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
 
 export default function Apply() {
   const profile = useStore((s) => s.profile);
@@ -41,6 +55,11 @@ export default function Apply() {
           onPress={() => recheckListings()}
         />
       ) : null}
+      {/* Beta report (1.55.0): the shareable, PII-free session artifact. Serve-backed surfaces only —
+          the on-device backend has no /report route yet. */}
+      {Platform.OS === 'web' && backendMode() === 'serve' && Object.keys(verdicts).length > 0 ? (
+        <Btn label={t(lang, 'apply.exportReport')} onPress={() => { exportBetaReport().catch(() => {}); }} />
+      ) : null}
 
       {queue.map((j) => {
         const v = verdicts[j.url];
@@ -70,17 +89,19 @@ export default function Apply() {
                   </Text>
                 ))}
 
-                {/* Thumbs = a human label on this verdict. Feeds the local calibration ledger (jobfaro calibrate --feedback). */}
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
+                {/* The tester question (1.55.0): "Would you apply?" — a label on the ROLE. The backend
+                    derives verdict-agreement from it per band (Research answers recorded, never scored),
+                    and the beta report analyzes the raw answers. */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', marginTop: 8 }}>
                   <Text style={{ color: C.dim, fontSize: 12, marginRight: 8 }}>{t(lang, 'apply.rate')}</Text>
                   {(['up', 'down'] as const).map((th) => {
                     const on = feedback[j.url] === th;
                     const tint = th === 'up' ? C.good : C.bad;
                     return (
                       <Pressable key={th} onPress={() => rateVerdict(j.url, th)} hitSlop={8}
-                        style={{ paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8, marginRight: 6,
+                        style={{ paddingHorizontal: 10, paddingVertical: 3, borderRadius: 8, marginRight: 6,
                                  borderWidth: 1, borderColor: on ? tint : C.cardEdge, backgroundColor: on ? tint + '22' : 'transparent' }}>
-                        <Text style={{ fontSize: 15, opacity: on ? 1 : 0.6 }}>{th === 'up' ? '👍' : '👎'}</Text>
+                        <Text style={{ fontSize: 13, color: on ? tint : C.dim, opacity: on ? 1 : 0.8 }}>{t(lang, th === 'up' ? 'apply.wouldApply' : 'apply.wouldnt')}</Text>
                       </Pressable>
                     );
                   })}

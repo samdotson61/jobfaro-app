@@ -16,6 +16,7 @@ cli:
     eval: "Evaluate a role against your résumé — fit score + report"
     recheck: "Re-verify that scored listings are still posted (no model needed)"
     feedback: "Rate a verdict 👍/👎 — builds the local set that calibrates the evaluator"
+    report: "Write the beta report (funnel + ratings + agreement, PII-free) to data/reports/"
     pipeline: "Run scan, evaluate, and track end to end"
     pdf: "Render a tailored ATS résumé → output/ (HTML/PDF)"
     outreach: "Find people to contact about a role + keep follow-ups polite (drafts stay yours to send)"
@@ -168,6 +169,7 @@ import:
 serve:
   title: "Jobfaro engine server"
   up: "Engine API on {url} — POST /evaluate, /import; GET /health."
+  gui: "GUI on {url} (serving {dir})"
   endpoints: "The web/mobile front-ends talk to this one socket (localhost only)."
   stop: "Press Ctrl-C to stop."
 
@@ -267,6 +269,13 @@ feedback:
   tally: "{n} label(s) so far — the evaluator agrees with you {agreement}% of the time."
   calibrate_hint: "See where it's wrong: jobfaro calibrate --feedback"
   more_hint: "{need} more label(s) and `jobfaro calibrate --feedback` starts telling you something real."
+
+report:
+  title: "Beta report"
+  written: "Report written: {file}"
+  summary: "{evaluated} roles scored · {rated} rated by you · evaluator agreement {agreement}"
+  no_ratings: "No roles rated yet — answer \"Would you apply?\" on scored roles (app thumbs or `jobfaro feedback`), then re-run."
+  privacy: "The report contains no résumé content and no personal data beyond region/level settings — safe to share."
 
 recheck:
   title: "Re-check listings"

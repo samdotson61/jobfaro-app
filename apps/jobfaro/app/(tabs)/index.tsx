@@ -251,6 +251,11 @@ export default function Search() {
           disabled={!intent.trim() || busy != null}
           progress={busy === 'discover' ? Math.max(0.08, progress) : undefined}
         />
+        {/* Honest-UI (1.21.1): a disabled control explains itself — discovery needs the intent text
+            above to know WHAT to hunt for, and nothing said so. */}
+        {!intent.trim() ? (
+          <Text style={{ color: C.dim, fontSize: 11, textAlign: 'center', marginTop: 4 }}>{t(lang, 'search.discoverHint')}</Text>
+        ) : null}
       </Card>
 
       {/* search + sort + filter — the list auto-ranks by relevance/score, stays searchable/filterable */}

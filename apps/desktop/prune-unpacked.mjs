@@ -1,8 +1,8 @@
-// After packaging, remove the UNPACKED bundle directories except the native mac-arm64 one (kept for
-// local smoke-driving). Leaving several Jobfaro.app bundles in dist-build made Spotlight/Launchpad
-// list duplicates — and a clean-rebuild deletes/recreates them, stranding stale LaunchServices
-// entries that LOOK like the app but won't open (caught live 2026-08-28). The distributables are the
-// zips/exes; testers never need the unpacked dirs.
+// After packaging, remove ALL unpacked bundle directories — dist-build holds distributables only
+// (zips/exes). ANY Jobfaro.app left on indexed disk shows up as a second app in Spotlight/Launchpad
+// beside /Applications/Jobfaro.app (caught live 2026-08-28, twice: first the Intel+Windows dirs, then
+// the mac-arm64 one kept "for smoke"). Packaged smoke-testing now unzips into the temp dir instead
+// (`npm run smoke:packed`) — Spotlight doesn't index /var/folders.
 import { readdirSync, rmSync, existsSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url'
 const dist = path.join(path.dirname(fileURLToPath(import.meta.url)), 'dist-build')
 if (existsSync(dist)) {
   for (const d of readdirSync(dist, { withFileTypes: true })) {
-    if (d.isDirectory() && d.name !== 'mac-arm64') {
+    if (d.isDirectory()) {
       rmSync(path.join(dist, d.name), { recursive: true, force: true })
       console.log('pruned', d.name + '/')
     }

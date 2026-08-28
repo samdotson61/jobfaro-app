@@ -4,6 +4,21 @@ All notable changes to Jobfaro are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and Jobfaro adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.57.2] — 2026-08-28
+
+### Fixed
+
+- **Spotlight really does show one Jobfaro now.** Desktop 0.2.2. 1.57.1 kept the unpacked
+  `mac-arm64` bundle in `dist-build/` for smoke-driving — and Spotlight indexes any `.app` on disk
+  regardless of LaunchServices, so the duplicate persisted. `dist-build/` now holds **zero** unpacked
+  bundles (distributables only): packaged smoke-testing moved to **`npm run smoke:packed`** (unzips
+  the native zip into the temp dir, which Spotlight doesn't index, runs `--smoke`, cleans up), and
+  `install:mac` extracts from the zip the same way. Verified: `mdfind` lists exactly
+  `/Applications/Jobfaro.app`.
+- **The grayed-out "Discover more companies (winc)" now explains itself** (app 1.21.1): it's
+  disabled until you describe what you want in the intent box (discovery hunts using your words) —
+  a dim hint under the button says so, EN/ES, instead of leaving a silent dead control.
+
 ## [1.57.1] — 2026-08-28
 
 ### Fixed

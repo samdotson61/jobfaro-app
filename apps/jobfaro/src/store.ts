@@ -48,7 +48,13 @@ interface State {
   setCv: (t: string) => void;
   setIntent: (t: string) => void;
   loadResume: (text: string, fileName?: string) => void;
-  uploadResume: (fileName: string, base64: string) => Promise<{ ok: boolean; error?: string }>; // parse docx/pdf/txt bytes via serve
+  uploadResume: (fileName: string, base64: string) => Promise<{
+    ok: boolean; error?: string;
+    // What the résumé told us (1.22.0) — so the UI can SHOW the rebuilt profile and invite confirmation.
+    detected?: { name?: string; location?: string; region?: string; level?: string };
+    applied?: { region: boolean; level: boolean }; // false = the user's own manual pick won
+    clearedVerdicts?: number; // fit scores judged against the OLD résumé were dropped (stale)
+  }>;
   saveProfileToCli: () => void;        // persist the chosen identity to config/profile.yml (durable across devices/reloads)
   setOnboarded: (v: boolean) => void;
   continueAsSaved: () => void;         // load a saved CLI profile (config/profile.yml + cv.md) into the app
@@ -208,7 +214,7 @@ export const useStore = create<State>()(persist((set, get) => ({
     set({ busy: 'scan', progress: 0.12 });
     const stopTick = startTicker(set, get);
     const bump = (p: number) => set((s) => ({ progress: Math.max(s.progress, p) }));
-    let result: { ok: boolean; error?: string } = { ok: false };
+    let result: Awaited<ReturnType<State['uploadResume']>> = { ok: false };
     try {
       const r = await servePost('/import/upload', { name: fileName, base64 });
       if (r && r.ok && typeof r.text === 'string') {
@@ -219,13 +225,30 @@ export const useStore = create<State>()(persist((set, get) => ({
         const s0 = get();
         const newProfile = { ...s0.profile };
         if (f.name && f.name.trim()) newProfile.name = f.name.trim();
-        if (!s0.regionsUserSet && f.location) { const reg = regionForLocation(f.location); if (reg) newProfile.regions = [reg]; }
-        if (!s0.levelsUserSet && f.level && ['entry', 'mid', 'senior'].includes(f.level)) newProfile.levels = [f.level];
+        const detectedRegion = f.location ? regionForLocation(f.location) : '';
+        const regionApplied = Boolean(!s0.regionsUserSet && detectedRegion);
+        if (regionApplied) newProfile.regions = [detectedRegion as string];
+        const levelApplied = Boolean(!s0.levelsUserSet && f.level && ['entry', 'mid', 'senior'].includes(f.level));
+        if (levelApplied) newProfile.levels = [f.level as string];
         const scopeSig = (p: any) => `${[...p.regions].sort().join(',')}|${[...p.levels].sort().join(',')}`;
         const scopeChanged = scopeSig(newProfile) !== scopeSig(s0.profile);
-        set({ cv: r.text, resumeFile: r.name || fileName, profile: newProfile });
+        // A DIFFERENT résumé invalidates every fit score judged against the old one — keeping them
+        // would be exactly the false confidence the evaluator work exists to prevent. Drop the
+        // in-memory verdicts + thumb highlights (the on-disk ledger keeps its historical rows, which
+        // recorded score/band at rating time); the UI says so and offers re-scoring.
+        const resumeChanged = Boolean(s0.cv && s0.cv.trim() && s0.cv !== r.text);
+        const clearedVerdicts = resumeChanged ? Object.keys(s0.verdicts).length : 0;
+        set({
+          cv: r.text, resumeFile: r.name || fileName, profile: newProfile,
+          ...(resumeChanged ? { verdicts: {}, feedback: {}, tailored: {} } : {}),
+        });
         get().saveProfileToCli(); // an uploaded identity persists to config/profile.yml (durable)
-        result = { ok: true };
+        result = {
+          ok: true,
+          detected: { name: f.name, location: f.location, region: detectedRegion || undefined, level: f.level },
+          applied: { region: regionApplied, level: levelApplied },
+          clearedVerdicts,
+        };
         bump(0.35);
         // If the résumé moved the region/level, re-scan so the roles match the new profile (not the old one).
         if (scopeChanged) {

@@ -4,6 +4,29 @@ All notable changes to Jobfaro are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and Jobfaro adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.58.0] — 2026-08-28
+
+**A new résumé rebuilds the search — visibly.** App 1.22.0 · desktop 0.2.3. Answers three product
+questions: does re-uploading a résumé refresh the profile (mostly yes, now completely and visibly),
+does the app help set preferences (now it asks), and how does anyone know what to type for a good
+search (now it shows them).
+
+### Changed
+
+- **Uploading a different résumé clears the stale fit scores.** Verdicts judged against the OLD
+  résumé are dropped (in-memory verdicts, thumb highlights, tailored drafts) with an honest note —
+  "{n} previous score(s) were for your old résumé and were cleared — re-score in Apply." Keeping them
+  would be exactly the false confidence the evaluator work exists to prevent. (Profile seeding
+  already existed: name always; region/level from the résumé only where the user hasn't chosen
+  manually — explicit picks still win, and that precedence is now SAID out loud.)
+- **After an upload the app shows what it detected and asks for confirmation**: "From your résumé:
+  Jordan Reyes · Columbus, OH · entry level. Check your preferences below — your own picks always
+  win," and the preferences fold opens itself for review. A résumé with no detectable identity gets
+  the honest fallback prompt instead.
+- **The intent box teaches what a good ask looks like**: a one-line recipe ("the kind of work +
+  level + where + any must-haves") plus three tappable real examples that fill the box — verified
+  live: tap → filled → Discover unlocks. All EN/ES.
+
 ## [1.57.2] — 2026-08-28
 
 ### Fixed

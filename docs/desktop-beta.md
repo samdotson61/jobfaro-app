@@ -52,9 +52,12 @@ isn't running yet — start it and the banner clears on its own.
 
 ## 3. The test session (30–60 minutes)
 
-1. **Open Jobfaro** → upload your résumé (PDF/DOCX) or set region + level by hand.
-2. **Search tab** → describe what you want → *Start searching*. Jobfaro scans real employer job
-   boards and ranks what it finds.
+1. **Open Jobfaro** → upload your résumé (PDF/DOCX) or set region + level by hand. After an upload
+   the app shows what it detected (name, area, level) and opens the preferences for you to confirm —
+   your own picks always win, and uploading a *different* résumé clears any old fit scores honestly.
+2. **Search tab** → describe what you want (tap one of the examples if you're unsure — the recipe is
+   *kind of work + level + where + any must-haves*) → *Start searching*. Jobfaro scans real employer
+   job boards and ranks what it finds.
 3. **Apply tab** → **⚡ Score top 10 matches** (or score roles one by one). Each card gets a
    band — Apply / Research / Don't — with a colored edge stripe; tap **"Why this score"** on any
    card to see the evidence per criterion (and the CV-tailoring tools).

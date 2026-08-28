@@ -97,7 +97,19 @@ export default function Search() {
       }
       const r = await uploadResume(asset.name, base64); // persists the extracted text + re-ranks
       if (!r.ok) setMsg(t(lang, 'common.uploadFailed'));   // honest: say it couldn't be read (e.g. scanned PDF)
-      else setOnboarded(true);                             // a successful upload completes onboarding → into Search
+      else {
+        setOnboarded(true); // a successful upload completes onboarding → into Search
+        // Show what the résumé rebuilt (1.22.0) and open the preferences fold for confirmation —
+        // the person sees exactly what was detected, what applied, and that their own picks win.
+        const d = r.detected || {};
+        const place = d.location || (d.region ? t(lang, `region.${d.region}`) : '');
+        const lvl = d.level ? t(lang, `level.${d.level}`) : '';
+        const parts = [d.name, place, lvl].filter(Boolean).join(' · ');
+        let note = parts ? t(lang, 'search.detected', { parts }) : t(lang, 'search.detectedNone');
+        if (r.clearedVerdicts) note += '  ' + t(lang, 'search.staleScores', { n: r.clearedVerdicts });
+        setMsg(note);
+        setFiltersOpen(true);
+      }
     } catch (e: any) {
       setMsg(String(e?.message ?? e));
     }
@@ -180,6 +192,20 @@ export default function Search() {
           onChangeText={setIntent}
           style={{ minHeight: 58 }}
         />
+        {/* What a good ask looks like (1.22.0): a one-line recipe + tappable real examples that fill
+            the box — nobody should have to guess what to type to get a good search. */}
+        {!intent.trim() ? (
+          <View>
+            <Text style={{ color: C.dim, fontSize: 11, marginTop: 4 }}>{t(lang, 'search.intentRecipe')}</Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 2 }}>
+              {(['ex1', 'ex2', 'ex3'] as const).map((k) => (
+                <Pressable key={k} onPress={() => setIntent(t(lang, `search.${k}`))}>
+                  <Pill label={t(lang, `search.${k}`)} color={C.tint} text={C.dim} />
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        ) : null}
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
           <View style={{ flexGrow: 1, flexBasis: 130 }}><Btn kind="ghost" label={`📄 ${t(lang, 'common.upload')}`} onPress={onUpload} /></View>
         </View>

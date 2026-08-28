@@ -4,6 +4,16 @@ All notable changes to Jobfaro are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and Jobfaro adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.54.1] — 2026-08-28
+
+### Fixed
+
+- **Eval replies can no longer truncate mid-JSON.** The v2 prompt's per-criterion definitions elicit
+  slightly longer evidence text, and the 700-token reply cap cut one real long-JD eval off mid-object
+  (`finish_reason: length` → an honest "didn't parse" skip, deterministic under greedy decoding).
+  `evalRole` and the Batches path now allow 1024 tokens — matching the native app — so the same
+  content arrives uncut. Verified live: the affected role re-scored cleanly.
+
 ## [1.54.0] — 2026-08-28
 
 **The feedback funnel opens to the CLI.** The evaluator's calibration path has depended on real

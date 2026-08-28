@@ -4,6 +4,31 @@ All notable changes to Jobfaro are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and Jobfaro adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.56.1] — 2026-08-28
+
+### Fixed
+
+- **A fresh home's first scan no longer scans nothing.** serve's `/scan` read `portals.yml`, got an
+  empty list on a brand-new machine, and silently "found" zero roles — the native app has seeded
+  zero-config from the region employer catalog since Phase 10, but serve (and therefore the web GUI
+  and the new desktop app) never got the parity. Caught driving the packed desktop app as a fresh
+  tester. `/scan` now seeds `defaultPortalsForRegions()` (exactly what `jobfaro seed --region <r>
+  --write` materializes) and persists it, so the tester's first "Find matching roles" hits real boards.
+- **Desktop 0.1.1/0.1.2 + app 1.20.1 — three more live-drive catches** (found running the packed app
+  end-to-end as a fresh tester, with the human watching):
+  - The "Export beta report" download opened a native save dialog and stranded the bytes as a hidden
+    temp file — the shell now sets the save path itself (straight to Downloads, no dialog) and
+    reveals the finished report in Finder/Explorer.
+  - A random engine port per launch made every restart look like a first run (localStorage is
+    origin-scoped) — the shell now prefers a stable port (43210, free-port fallback), so onboarding,
+    verdicts, and thumbs survive restarts.
+  - The export button was gated on in-memory verdicts, so a restarted session with scored roles in
+    the pipeline couldn't export — it's now always offered on serve-backed surfaces (a zero-rating
+    report states its funnel honestly).
+  Verified live in the packed app: fresh onboard → 404 roles found zero-config → winc scoring
+  (deterministic 4.4 across rebuilds) → 👍/👎 with correct derived agreement in the ledger →
+  re-check → restart with state intact → one-click report export.
+
 ## [1.56.0] — 2026-08-28
 
 **Jobfaro Desktop (beta 0.1.0) — Mac + Windows.** One double-clickable app for beta testers: the

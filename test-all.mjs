@@ -22,7 +22,7 @@ import { assertAllowedUrl } from './lib/http.mjs'
 import { resolveState, stateLabel, allStates } from './lib/states.mjs'
 import { classifyTitle, levelDecision, filterByLevel } from './lib/levels.mjs'
 import { regionStateSet, locationMatches, filterByLocation, canonicalLocation, regionPriority, regionForLocation } from './lib/regions.mjs'
-import { selectEmployers, toPortals } from './lib/seed.mjs'
+import { selectEmployers, toPortals, defaultPortalsForRegions } from './lib/seed.mjs'
 import { parseResumeText } from './lib/resume.mjs'
 import { renderDashboard, analyze } from './lib/commands/dashboard.mjs'
 import { renderTui, pipelineView } from './lib/commands/tui.mjs'
@@ -1703,6 +1703,16 @@ test('1.53.0 liveness: markListingsFromScan is host-scoped — full board in, fi
   assert.equal(gone, 1)
   assert.deepEqual(out.map((r) => r.listing_state), ['live', 'gone', '', ''])
   assert.equal(out[1].checked, '2026-08-28')
+})
+
+test('1.56.1 zero-config scan: defaultPortalsForRegions seeds real boards for a fresh home', () => {
+  const midwest = defaultPortalsForRegions(['midwest'])
+  assert.ok(midwest.length > 5, `midwest catalog seeds portals (got ${midwest.length})`)
+  assert.ok(midwest.every((p) => p.company && p.careers_url), 'every portal is scannable (company + careers_url)')
+  const everywhere = defaultPortalsForRegions(['nationwide'])
+  assert.ok(everywhere.length >= midwest.length, 'nationwide covers at least the region slice')
+  // An empty/unknown selection still returns the full catalog — a fresh tester must never scan nothing.
+  assert.ok(defaultPortalsForRegions([]).length > 0)
 })
 
 test('1.55.0 would-apply: thumbFromWouldApply derives agreement per band; Research is never scored', () => {

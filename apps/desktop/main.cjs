@@ -9,7 +9,7 @@
 // `--smoke` runs a headless self-test: boot serve, load the GUI, probe the API through the same port,
 // capture a real screenshot of the rendered window, print SMOKE OK, exit — CI-able verification.
 
-const { app, BrowserWindow, shell, dialog } = require('electron')
+const { app, BrowserWindow, shell, dialog, session } = require('electron')
 const path = require('node:path')
 const net = require('node:net')
 const fs = require('node:fs')
@@ -19,15 +19,25 @@ const GUI_DIR = path.join(__dirname, 'gui')
 // The engine ships as the real npm-packed `jobfaro` dependency; resolve its checkout root.
 const ENGINE_ROOT = path.dirname(require.resolve('jobfaro/package.json'))
 
-function freePort() {
-  return new Promise((resolve, reject) => {
+// A STABLE port (0.1.2): the renderer's localStorage — onboarded flag, verdicts, thumbs highlights —
+// is scoped to the page ORIGIN, so a random port per launch made every restart look like a first run
+// (caught live in the restart test). Prefer one fixed port; fall back to a free one only if it's
+// taken (second instance, port squatter) — losing per-origin state then is the honest lesser evil.
+const PREFERRED_PORT = 43210
+
+function tryPort(port) {
+  return new Promise((resolve) => {
     const s = net.createServer()
-    s.listen(0, '127.0.0.1', () => {
+    s.once('error', () => resolve(null))
+    s.listen(port, '127.0.0.1', () => {
       const p = s.address().port
       s.close(() => resolve(p))
     })
-    s.on('error', reject)
   })
+}
+
+async function pickPort() {
+  return (await tryPort(PREFERRED_PORT)) ?? (await tryPort(0))
 }
 
 async function startEngine(port) {
@@ -61,7 +71,19 @@ async function startEngine(port) {
 }
 
 async function main() {
-  const port = await freePort()
+  // In-page downloads (the "Export beta report" button hands the browser a blob) need an explicit
+  // save path in Electron (0.1.1 — without this the bytes landed as a hidden temp file and never got
+  // their filename). Save straight to the OS Downloads folder and reveal the finished file, so the
+  // tester never wonders where their report went.
+  session.defaultSession.on('will-download', (_e, item) => {
+    const target = path.join(app.getPath('downloads'), item.getFilename() || 'jobfaro-download')
+    item.setSavePath(target)
+    item.once('done', (_ev, state) => {
+      if (state === 'completed' && !SMOKE) shell.showItemInFolder(target)
+    })
+  })
+
+  const port = await pickPort()
   await startEngine(port)
 
   const win = new BrowserWindow({

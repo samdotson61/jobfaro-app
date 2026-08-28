@@ -56,8 +56,10 @@ export default function Apply() {
         />
       ) : null}
       {/* Beta report (1.55.0): the shareable, PII-free session artifact. Serve-backed surfaces only —
-          the on-device backend has no /report route yet. */}
-      {Platform.OS === 'web' && backendMode() === 'serve' && Object.keys(verdicts).length > 0 ? (
+          the on-device backend has no /report route yet. Always offered there (1.20.1): the report is
+          honest at any stage — a restarted session's verdicts live in the pipeline file, not in this
+          tab's memory, and even a zero-rating report states its funnel truthfully. */}
+      {Platform.OS === 'web' && backendMode() === 'serve' ? (
         <Btn label={t(lang, 'apply.exportReport')} onPress={() => { exportBetaReport().catch(() => {}); }} />
       ) : null}
 

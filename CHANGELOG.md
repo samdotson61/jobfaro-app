@@ -4,6 +4,36 @@ All notable changes to Jobfaro are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and Jobfaro adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.57.0] — 2026-08-28
+
+**The calm-down: progressive disclosure + a portable, idempotent desktop build.** App 1.21.0 ·
+desktop 0.2.0. Driven by a structured design critique of the drive-test screenshots — the Apply tab
+led with three identical full-width primary buttons, and every verdict card rendered its full
+five-criterion evidence (~120 words), a steer field, and a tailor button unconditionally, burying
+the one thing a tester must do (answer "Would you apply?").
+
+### Changed
+
+- **Apply tab, one action hierarchy**: batch scoring stays the single primary button; Re-check and
+  Export are quiet ghost buttons sharing one row.
+- **Verdict cards collapse by default**: band pill + score + pay + the "Would you apply?" thumbs
+  (promoted to sit directly under the verdict), then a **"Why this score ▾"** toggle that expands
+  the five-criterion evidence and the tailor tools (steer + button + output). A card with tailored
+  output stays open. A **band-colored edge stripe** lets Apply/Research/Don't scan by color.
+- **Search tab scope chips fold behind a live summary line** ("Midwest — Entry — Any · Adjust ▾")
+  that always shows the CURRENT selections — nothing hidden, three chip rows less noise. EN/ES.
+- **Desktop build is idempotent + portable (0.2.0)**: the vendored engine tarball now has the
+  STABLE name `vendor/jobfaro-engine.tgz`, so the committed dependency string survives every engine
+  version bump and a fresh clone bootstraps with one command (`node prepare-engine.mjs`); re-running
+  converges. New `npm run dist:all` = clean → vendor → GUI → all six installers. Launch-anywhere
+  verified: the packed .app smoke-passes from a foreign directory (no baked paths; data home stays
+  `~/.jobfaro`); upgrades keep state (stable port → stable origin, userData + data home survive).
+
+### Housekeeping (this machine, not the repo)
+
+- Swept 7.9GB of stale Xcode DerivedData, including the last pre-rename **jobdar** simulator build —
+  zero `Jobdar.app`/stale `Jobfaro.app` bundles remain outside `dist-build/`.
+
 ## [1.56.1] — 2026-08-28
 
 ### Fixed

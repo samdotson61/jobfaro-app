@@ -32,6 +32,7 @@ export default function Search() {
   const { uploadResume, runSearch, discover, toggleTransferable, toggleSponsorship, toggleRegion, toggleLevel, setSalary, setIntent, setOnboarded, continueAsSaved, hydrate } = useStore.getState();
   const lang = profile.language;
   const [msg, setMsg] = useState('');
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [sortBy, setSortBy] = useState<SortKey>('score');
   const [filter, setFilter] = useState<FilterKey>('all');
@@ -188,7 +189,19 @@ export default function Search() {
           {msg || (resumeFile ? `✓ ${resumeFile}` : cv ? t(lang, 'search.resumeSaved') : t(lang, 'search.resumeNone'))}
         </Text>
 
-        {/* Tune the search scope — selectable regions + level; the list filters live, Find re-scans. */}
+        {/* Scope summary + fold (1.21.0 calm-down): the chip groups (region/level/salary) collapse
+            behind a one-line readout of the CURRENT selections — the values stay visible, the three
+            rows of chips only appear when the person is actually changing them. */}
+        <Pressable onPress={() => setFiltersOpen((x) => !x)} hitSlop={6} style={{ marginTop: 8 }}>
+          <Text style={{ color: C.dim, fontSize: 12 }}>
+            {profile.regions.map((r) => t(lang, `region.${r}`)).join(' · ') || t(lang, 'region.midwest')}
+            {' — '}{profile.levels.map((l) => t(lang, `level.${l}`)).join(' · ')}
+            {' — '}{(profile.salary || 0) === 0 ? t(lang, 'salary.any') : `$${Math.round((profile.salary || 0) / 1000)}k+`}
+            {'   '}<Text style={{ color: C.tint, fontWeight: '600' }}>{filtersOpen ? `${t(lang, 'search.filtersHide')} ▴` : `${t(lang, 'search.filtersShow')} ▾`}</Text>
+          </Text>
+        </Pressable>
+
+        {filtersOpen ? (<View>
         <Text style={{ color: C.dim, fontSize: 12, marginTop: 8 }}>{t(lang, 'common.region')}</Text>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 2 }}>
           {REGION_OPTS.map((r) => (
@@ -224,6 +237,7 @@ export default function Search() {
           ))}
         </View>
         {profile.name ? <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 2 }}><Pill label={`👤 ${profile.name}`} color={C.tint} text={C.tint} /></View> : null}
+        </View>) : null}
         <Btn
           label={t(lang, 'search.scan')}
           onPress={runSearch}

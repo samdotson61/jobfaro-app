@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url'
 const here = path.dirname(fileURLToPath(import.meta.url))
 const appDir = path.resolve(here, '..', 'jobfaro')
 console.log('exporting web bundle from', appDir)
-execSync('npx expo export --platform web', { cwd: appDir, stdio: 'inherit' })
+execSync('npx expo export --platform web --clear', { cwd: appDir, stdio: 'inherit' })
 const dist = path.join(appDir, 'dist')
 if (!existsSync(path.join(dist, 'index.html'))) throw new Error('expo export produced no index.html')
 rmSync(path.join(here, 'gui'), { recursive: true, force: true })

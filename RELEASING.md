@@ -88,14 +88,18 @@ their guide). Build steps, from a fresh clone:
 
 ```bash
 cd apps/desktop
-node prepare-engine.mjs   # npm-packs the repo root → vendor/jobfaro-<v>.tgz, installs it + all deps
-node build-gui.mjs        # exports the Expo app for web → gui/
+node prepare-engine.mjs   # bootstrap: npm-packs the repo root → vendor/jobfaro-engine.tgz (STABLE
+                          # name — the committed dependency string never changes) + installs all deps
 npx electron . --smoke    # self-test: engine + GUI + API through one port, screenshots to verify
-npx electron-builder --mac zip && npx electron-builder --mac zip --x64
-npx electron-builder --win nsis zip --x64 && npx electron-builder --win nsis zip
+npm run dist:all          # clean → vendor → GUI export → all six installers (mac arm64/x64,
+                          # win x64/arm64), so no stale-version artifacts linger in dist-build/
 ```
 
 Artifacts land in `apps/desktop/dist-build/` (gitignored) — distribute the zips/exe directly for
-the beta (unsigned; the tester guide covers the OS warnings). Re-run `prepare-engine.mjs` after ANY
-engine change or version bump — the packed app ships the vendored tarball, not the working tree.
-Signing/notarization and a real icon are pre-1.0 items, not beta blockers.
+the beta (unsigned; the tester guide covers the OS warnings). The whole flow is idempotent —
+re-running any step converges — and `prepare-engine.mjs` is the one command a fresh clone needs
+before anything else (plain `npm install` fails until the gitignored tarball exists). Re-run it
+after ANY engine change or version bump — the packed app ships the vendored tarball, not the
+working tree. The packed app is launch-anywhere (no baked paths; data home `~/.jobfaro`) and
+upgrade-safe (stable engine port → stable origin, so onboarding/verdict state survives replacing
+the .app). Signing/notarization and a real icon are pre-1.0 items, not beta blockers.

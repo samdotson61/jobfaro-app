@@ -55,8 +55,9 @@ isn't running yet — start it and the banner clears on its own.
 1. **Open Jobfaro** → upload your résumé (PDF/DOCX) or set region + level by hand.
 2. **Search tab** → describe what you want → *Start searching*. Jobfaro scans real employer job
    boards and ranks what it finds.
-3. **Apply tab** → **⚡ Score top 10 matches** (or score roles one by one). Each verdict shows a
-   band — Apply / Research / Don't — with the evidence per criterion.
+3. **Apply tab** → **⚡ Score top 10 matches** (or score roles one by one). Each card gets a
+   band — Apply / Research / Don't — with a colored edge stripe; tap **"Why this score"** on any
+   card to see the evidence per criterion (and the CV-tailoring tools).
 4. **The important part:** on every scored role, answer **"Would you apply to this role?"** —
    👍 *I'd apply* or 👎 *Not for me*. Answer honestly from your gut after reading the listing;
    there are no wrong answers — disagreeing with the app is exactly the data we need. Rate as

@@ -1,6 +1,6 @@
 {
   "name": "jobfaro-desktop",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "private": true,
   "description": "Jobfaro Desktop (beta) — the full local job-search engine + the app GUI in one double-clickable window, for Mac and Windows beta testers.",
   "main": "main.cjs",
@@ -11,10 +11,12 @@
     "dist:mac": "electron-builder --mac zip",
     "dist:win": "electron-builder --win nsis zip",
     "dist": "electron-builder --mac zip --win nsis zip",
-    "prepare-engine": "node prepare-engine.mjs"
+    "prepare-engine": "node prepare-engine.mjs",
+    "clean": "node clean.mjs",
+    "dist:all": "npm run clean && npm run prepare-engine && npm run build-gui && electron-builder --mac zip && electron-builder --mac zip --x64 && electron-builder --win nsis zip --x64 && electron-builder --win nsis zip"
   },
   "dependencies": {
-    "jobfaro": "file:vendor/jobfaro-1.56.1.tgz"
+    "jobfaro": "file:vendor/jobfaro-engine.tgz"
   },
   "devDependencies": {
     "electron": "^33.0.0",

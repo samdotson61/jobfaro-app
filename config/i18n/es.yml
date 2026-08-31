@@ -288,6 +288,10 @@ recheck:
   gone_note: "Los puestos retirados conservan su puntuación e historial, pero salen de la cola de evaluación y muestran \"ya no publicado\" — nada se borra."
   unknown_note: "{count} portal(es) no respondieron — esas filas quedan sin cambios (un portal inaccesible no prueba nada)."
 
+fresh:
+  checking: "Verificando que {count} puesto(s) Postular/Investigar sigan publicados (sin verificación hoy)…"
+  unknown: "{count} portal(es) no respondieron — se muestran con su último estado conocido."
+
 backend:
   title: "Backend de inferencia"
   mode: "Modo: {mode}  (local = en el dispositivo · api = tu clave · auto = local y luego api)"

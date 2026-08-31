@@ -4,6 +4,26 @@ All notable changes to Jobfaro are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and Jobfaro adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.60.0] — 2026-08-31
+
+**Never serve a dead role.** Liveness was only as fresh as the last manual `recheck`; a posting
+could die overnight and still wear its green Apply badge the next morning. Proven live on day one:
+the gate's first run caught an Apply-band role (Cincinnati Children's EMR Analyst I) that had gone
+dead since being scored the previous day, and marked it before it rendered.
+
+### Added
+
+- **Verify-before-present**: `tui`, `dashboard`, and `report` now auto-verify every actionable row
+  (evaluated, un-tracked, Apply/Research band) that lacks a **same-day** board check before showing
+  it — probes stamp `listing_state`/`checked` exactly like `recheck`, dead rows render "no longer
+  posted", and the pass is a silent no-op when everything is fresh (the usual case after a scan,
+  which stamps liveness for covered boards for free). `--no-verify` skips the gate (e.g. offline);
+  unreachable boards persist nothing and are disclosed as "shown with their last-known state".
+- `POST /recheck {stale:true}` on `serve`: the same cheap gate for front-ends — verifies only
+  actionable rows without a same-day check, so the app can guard its Apply list before rendering.
+- Pure primitives `staleActionable` + `verifyBeforePresent` (injectable probe/persist) in
+  `lib/liveness.mjs`, covered by offline tests (158 passing).
+
 ## [1.59.1] — 2026-08-31
 
 **Auto-eval stops re-serving dead postings.** A live run found `eval --next N` re-picking the same

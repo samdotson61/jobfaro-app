@@ -288,6 +288,10 @@ recheck:
   gone_note: "Gone roles keep their score and history, but leave the eval queue and show \"no longer posted\" — nothing is deleted."
   unknown_note: "{count} board(s) couldn't be reached — those rows are unchanged (an unreachable board proves nothing)."
 
+fresh:
+  checking: "Verifying {count} Apply/Research listing(s) are still posted (no check today yet)…"
+  unknown: "{count} board(s) couldn't be reached — shown with their last-known state."
+
 backend:
   title: "Inference backend"
   mode: "Mode: {mode}  (local = on-device · api = your key · auto = local then api)"

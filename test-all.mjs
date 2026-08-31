@@ -27,7 +27,7 @@ import { parseResumeText } from './lib/resume.mjs'
 import { renderDashboard, analyze } from './lib/commands/dashboard.mjs'
 import { renderTui, pipelineView } from './lib/commands/tui.mjs'
 import { mergeScanned, recordEval, serializePipeline, parsePipeline, band, bandConflict, isEvaluated, isTracked, setStatus, pruneScanned, PIPELINE_COLS, recordPrescreen, pendingQueue, roleKey, resolveAlias, recordListingChecks, markListingsFromScan } from './lib/evaluations.mjs'
-import { classifyFetchError } from './lib/liveness.mjs'
+import { classifyFetchError, staleActionable, verifyBeforePresent } from './lib/liveness.mjs'
 import { recheckTargets } from './lib/commands/recheck.mjs'
 import { extractYearsRequired, extractDegreeGate, extractGates, screenDecision, prescreenRole, freshnessPoints, reasonLine, blendSalary, extractCredential, extractField, cvHasField, cvHasCredential, isHardIdentity, extractSponsorship } from './lib/prescreen.mjs'
 import { extractPay, bandVsTarget, formatPay, paySummary, parseSalaryText, SALARY_TOLERANCE, SALARY_FLOOR } from './lib/salary.mjs'
@@ -1671,6 +1671,52 @@ test('1.53.0 liveness: classifyFetchError — only a positive 403/404/410 board 
   assert.equal(classifyFetchError('HTTP 500 for https://x.test/j'), 'unknown') // a broken board proves nothing
   assert.equal(classifyFetchError('fetch failed: ECONNREFUSED'), 'unknown')
   assert.equal(classifyFetchError(''), 'unknown')
+})
+
+test('1.60.0 verify-before-present: staleActionable picks only actionable rows without a same-day check', () => {
+  const today = '2026-08-31'
+  const base = { url: 'u', score: '4.4', band: 'apply', status: 'evaluated' }
+  const rows = [
+    { ...base, url: 'a' }, // never checked → stale
+    { ...base, url: 'b', checked: '2026-08-30' }, // yesterday → stale (fresh = same-day)
+    { ...base, url: 'c', checked: '2026-08-31' }, // today → fresh
+    { ...base, url: 'd', checked: 'garbage' }, // unparsable → stale
+    { ...base, url: 'e', band: 'research' }, // research is actionable too → stale
+    { ...base, url: 'f', band: 'dont' }, // not actionable
+    { ...base, url: 'g', listing_state: 'gone' }, // already gone → nothing to verify
+    { ...base, url: 'h', status: 'applied' }, // tracked → user already acted
+    { ...base, url: 'i', score: '', status: 'scanned' }, // not evaluated
+  ]
+  assert.deepEqual(staleActionable(rows, today).map((r) => r.url), ['a', 'b', 'd', 'e'])
+  // Widening the window keeps yesterday's check fresh.
+  assert.deepEqual(staleActionable(rows, today, 2).map((r) => r.url), ['a', 'd', 'e'])
+})
+
+test('1.60.0 verify-before-present: probes stale rows, persists only positive verdicts, unknown proves nothing', async () => {
+  const rows = [
+    { url: 'live1', score: '4.4', band: 'apply', status: 'evaluated' },
+    { url: 'dead1', score: '4.8', band: 'apply', status: 'evaluated' },
+    { url: 'down1', score: '4.1', band: 'research', status: 'evaluated' },
+    { url: 'fresh1', score: '4.4', band: 'apply', status: 'evaluated', checked: '2026-08-31' },
+  ]
+  const states = { live1: { state: 'live' }, dead1: { state: 'gone' }, down1: { state: 'unknown', error: 'ECONNREFUSED' } }
+  const persisted = []
+  const s = await verifyBeforePresent({
+    rows,
+    todayStr: '2026-08-31',
+    delayMs: 0,
+    probe: async (url) => states[url],
+    persist: (checks, date) => persisted.push({ checks, date }),
+  })
+  assert.equal(s.probed, 3) // fresh1 untouched
+  assert.equal(s.gone, 1)
+  assert.equal(s.live, 1)
+  assert.equal(s.unknown, 1)
+  assert.deepEqual(s.goneRoles.map((r) => r.url), ['dead1'])
+  assert.deepEqual(persisted, [{ checks: [{ url: 'live1', state: 'live' }, { url: 'dead1', state: 'gone' }], date: '2026-08-31' }])
+  // Nothing stale → zero probes, zero writes.
+  const s2 = await verifyBeforePresent({ rows: [rows[3]], todayStr: '2026-08-31', probe: async () => ({ state: 'gone' }), persist: () => assert.fail('no write expected') })
+  assert.equal(s2.probed, 0)
 })
 
 test('1.59.1 fix: auto-eval marks dead-board fetch failures gone (queue stops re-serving corpses)', () => {

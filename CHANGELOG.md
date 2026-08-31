@@ -4,6 +4,21 @@ All notable changes to Jobfaro are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and Jobfaro adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.59.1] — 2026-08-31
+
+**Auto-eval stops re-serving dead postings.** A live run found `eval --next N` re-picking the same
+~15 unfetchable roles every batch (a whole batch of 15 scored 0): a JD fetch that fails with a
+positive board answer — Workday CXS 403s an unposted job, Greenhouse/iCIMS 404/410 a closed one
+(verified in a real browser: the board itself says "the page you are looking for doesn't exist") —
+was swallowed as a plain skip, so the row stayed pending forever.
+
+### Fixed
+
+- `eval` (live loop + `--batch` prep) now classifies JD-fetch failures with the same 1.53.0 liveness
+  rule `recheck` uses: HTTP 403/404/410 → the row is stamped `listing_state: gone` ("no longer
+  posted" — kept, never deleted) and leaves the pending queue; network errors and empty JDs remain
+  ordinary skips, never claimed gone. Regression-tested (`markGoneIfDead`, injectable persist seam).
+
 ## [1.59.0] — 2026-08-28
 
 **Recommendations that are actually for YOU.** App 1.23.0 · desktop 0.2.4. Driven by a live failure:

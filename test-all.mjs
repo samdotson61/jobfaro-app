@@ -52,7 +52,7 @@ import { coverIsComplete, assembleTailoredCv, TAILOR_JSON_SCHEMA, buildTailorUse
 import { effectiveDirectives, contentHash, recordVariant } from './lib/customize_store.mjs'
 import { parsePreConfirm, isBorderline, evalSystemFor, preConfirmSystemFor } from './lib/eval_engine.mjs'
 import { resolvePay, socForTitle, loadWages, loadSocMap } from './lib/pay.mjs'
-import { parseNextCount, reportFooterLines, distributionWarning, NEXT_MAX } from './lib/commands/eval.mjs'
+import { parseNextCount, reportFooterLines, distributionWarning, markGoneIfDead, NEXT_MAX } from './lib/commands/eval.mjs'
 import { findRoleMatches } from './lib/commands/tailor.mjs'
 import { resolveJdSafe } from './lib/commands/_jd.mjs'
 import { renderRadar, renderSweep, fmtEta, fmtElapsed, visibleLength, createRadar, SWEEP_FRAMES } from './lib/progress.mjs'
@@ -1671,6 +1671,23 @@ test('1.53.0 liveness: classifyFetchError — only a positive 403/404/410 board 
   assert.equal(classifyFetchError('HTTP 500 for https://x.test/j'), 'unknown') // a broken board proves nothing
   assert.equal(classifyFetchError('fetch failed: ECONNREFUSED'), 'unknown')
   assert.equal(classifyFetchError(''), 'unknown')
+})
+
+test('1.59.1 fix: auto-eval marks dead-board fetch failures gone (queue stops re-serving corpses)', () => {
+  const t = getT('en')
+  const writes = []
+  const lines = []
+  const persist = (checks, date) => writes.push({ checks, date })
+  const say = (l) => lines.push(l)
+  const row = { url: 'https://x.wd5.myworkdayjobs.com/S/job/City/Role_R-1', company: 'Acme', role: 'Analyst' }
+  // A positive board 403/404/410 → marked gone, honest line printed.
+  assert.equal(markGoneIfDead(new Error('HTTP 403 for https://x.wd5.myworkdayjobs.com/...'), row, '2026-08-31', t, say, persist), true)
+  assert.deepEqual(writes, [{ checks: [{ url: row.url, state: 'gone' }], date: '2026-08-31' }])
+  assert.ok(lines[0].includes('no longer posted') && lines[0].includes('Acme'))
+  // A broken board/network proves nothing → no write, ordinary skip path.
+  assert.equal(markGoneIfDead(new Error('fetch failed: ECONNREFUSED'), row, '2026-08-31', t, say, persist), false)
+  assert.equal(markGoneIfDead(new Error('HTTP 500 for https://x.test/j'), row, '2026-08-31', t, say, persist), false)
+  assert.equal(writes.length, 1)
 })
 
 test('1.53.0 liveness: recordListingChecks stamps live/gone + date; unknown is never recorded; aliases resolve', () => {
